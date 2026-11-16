@@ -12,12 +12,17 @@
   <div class="page">
     <header class="masthead"><a class="wordmark" href="./" aria-label="Umwelt Explorer, inicio">UMWELT <span>/ EXPLORER</span></a><span class="edition">ESTUDIO 01 <span>·</span> EL PATIO</span></header>
     <main>
-      <section class="intro" aria-labelledby="title"><p class="eyebrow"><span class="tiny-star">✳</span> OTRAS FORMAS DE PERCIBIR</p><h1 id="title">Un mundo que<br /><em>no vemos.</em></h1><p class="subtitle">Un patio conocido. Una señal floral que no distinguimos a simple vista.</p></section>
+      <section class="intro" aria-labelledby="title"><h1 id="title">Un mundo que <em>no vemos.</em></h1><p class="subtitle">Un patio conocido. Una señal floral que no distinguimos a simple vista.</p></section>
       <div class="experiment">
         <section class="specimen" aria-label="Explorador del patio y la flor">
           <div class="specimen-heading"><span>01 / PATIO · PUNTO DE OBSERVACIÓN</span><span><i>Rudbeckia hirta</i></span></div>
           <div id="viewport" class="viewport"><p id="webgl-error" class="webgl-error" role="status" hidden>No se ha podido iniciar la vista 3D. Prueba a recargar la página o a usar un navegador con WebGL. Puedes seguir leyendo la explicación y las fuentes.</p></div>
           <div class="viewport-footer">
+            <fieldset class="view-selector">
+              <legend class="sr-only">Modo de representación</legend>
+              <label><input type="radio" name="view" aria-label="Referencia humana" value="human" /><span><strong>Referencia humana</strong><small>Los pétalos parecen amarillos</small></span><span class="radio-dot"></span></label>
+              <label><input type="radio" name="view" aria-label="Contraste UV" value="uv" checked /><span><strong>Contraste UV</strong><small>Una señal disponible para una abeja</small></span><span class="radio-dot"></span></label>
+            </fieldset>
             <p id="travel-status" class="travel-status" aria-live="polite">Arrastra para mirar alrededor <span>·</span> Toca la flor para acercarte</p>
             <div class="camera-controls" aria-label="Controles de exploración">
               <button type="button" id="approach" class="action-btn">Acercarse a la flor</button>
@@ -31,12 +36,6 @@
           </div>
         </section>
         <aside class="explanation" aria-label="Interpretar el contraste">
-          <p class="eyebrow">CAMBIA LA REFERENCIA</p>
-          <fieldset class="view-selector">
-            <legend class="sr-only">Modo de representación</legend>
-            <label><input type="radio" name="view" aria-label="Referencia humana" value="human" /><span><strong>Referencia humana</strong><small>Los pétalos parecen amarillos</small></span><span class="radio-dot"></span></label>
-            <label><input type="radio" name="view" aria-label="Contraste UV" value="uv" checked /><span><strong>Contraste UV</strong><small>Una señal disponible para una abeja</small></span><span class="radio-dot"></span></label>
-          </fieldset>
           <div class="lesson"><span class="section-number">UNA SEÑAL OCULTA</span><h2>El mismo amarillo.<br />Un contraste distinto.</h2><p>En este patio, dos zonas de los pétalos pueden parecernos amarillas y reflejar distinta cantidad de ultravioleta. La abeja melífera tiene receptores sensibles al UV.</p></div>
           <div class="legend" aria-label="Leyenda del contraste UV">
             <div><span class="swatch basal"></span><p><strong>Base del pétalo</strong><span>Mayor absorción UV</span></p></div>
