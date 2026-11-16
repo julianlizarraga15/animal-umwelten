@@ -1,7 +1,7 @@
 import './style.css';
 import {
-  ACESFilmicToneMapping, AmbientLight, DirectionalLight, HemisphereLight,
-  PCFSoftShadowMap, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3,
+  ACESFilmicToneMapping, DirectionalLight, HemisphereLight, PCFShadowMap,
+  PerspectiveCamera, Raycaster, Scene, Vector2, Vector3,
   WebGLRenderer,
 } from 'three';
 import { createFlower, type View } from './flower';
@@ -9,11 +9,43 @@ import { createPatio } from './patio';
 
 type Pose = { position: Vector3; yaw: number; pitch: number };
 
+const INSPECTION_POSES = {
+  reverse: poseLookingAt(new Vector3(0.75, -0.3, 0.95), new Vector3(0, 1.4, 0)),
+} as const satisfies Record<string, Pose>;
+
+type InspectionId = keyof typeof INSPECTION_POSES;
+type LightRig = {
+  readonly exposure: number;
+  readonly sky: { readonly color: number; readonly ground: number; readonly intensity: number };
+  readonly sun: {
+    readonly color: number;
+    readonly intensity: number;
+    readonly from: readonly [number, number, number];
+    readonly shadowRadius: number;
+  };
+};
+const LIGHTING = {
+  soft: {
+    exposure: 1.08,
+    sky: { color: 0xfff9ea, ground: 0x8f8a78, intensity: 1.35 },
+    sun: { color: 0xfff4de, intensity: 2.6, from: [5, 9, 5], shadowRadius: 5 },
+  },
+  directional: {
+    exposure: 1,
+    sky: { color: 0xf4f8ff, ground: 0x8f8a78, intensity: 0.8 },
+    sun: { color: 0xffefd2, intensity: 4, from: [6.5, 6.5, 3.2], shadowRadius: 2 },
+  },
+} as const satisfies Record<string, LightRig>;
+type LightingId = keyof typeof LIGHTING;
+const DEFAULT_LIGHTING: LightingId = 'directional';
+type Trial = { readonly lighting: LightingId; readonly inspection: InspectionId | null };
+
 type CameraState =
   | { kind: 'patio' }
   | { kind: 'approaching'; startTime: number; fromPos: Vector3; fromYaw: number; fromPitch: number }
   | { kind: 'flower' }
-  | { kind: 'returning'; startTime: number; fromPos: Vector3; fromYaw: number; fromPitch: number };
+  | { kind: 'returning'; startTime: number; fromPos: Vector3; fromYaw: number; fromPitch: number }
+  | { kind: 'inspection'; id: InspectionId };
 
 const APPROACH_DURATION_MS = 1050;
 const RETURN_DURATION_MS = 950;
@@ -26,6 +58,20 @@ function yawPitchFromLookAt(from: Vector3, target: Vector3): { yaw: number; pitc
   return {
     yaw: Math.atan2(-dir.x, -dir.z),
     pitch: Math.asin(Math.max(-1, Math.min(1, dir.y))),
+  };
+}
+
+function poseLookingAt(position: Vector3, target: Vector3): Pose {
+  return { position, ...yawPitchFromLookAt(position, target) };
+}
+
+function parseTrial(search: string): Trial {
+  const params = new URLSearchParams(search);
+  const light = params.get('light');
+  const pose = params.get('pose');
+  return {
+    lighting: light !== null && Object.hasOwn(LIGHTING, light) ? light as LightingId : DEFAULT_LIGHTING,
+    inspection: pose !== null && Object.hasOwn(INSPECTION_POSES, pose) ? pose as InspectionId : null,
   };
 }
 
@@ -89,14 +135,39 @@ function assertNever(value: never): never {
   throw new Error(`Estado de cámara no manejado: ${String(value)}`);
 }
 
+function publishRenderStats(canvas: HTMLCanvasElement, renderer: WebGLRenderer): void {
+  canvas.dataset.drawCalls = String(renderer.info.render.calls);
+  canvas.dataset.triangles = String(renderer.info.render.triangles);
+  canvas.dataset.geometries = String(renderer.info.memory.geometries);
+  canvas.dataset.textures = String(renderer.info.memory.textures);
+}
+
+function installLighting(scene: Scene, renderer: WebGLRenderer, rig: LightRig): void {
+  renderer.toneMappingExposure = rig.exposure;
+  renderer.shadowMap.type = PCFShadowMap;
+  scene.add(new HemisphereLight(rig.sky.color, rig.sky.ground, rig.sky.intensity));
+  const sunlight = new DirectionalLight(rig.sun.color, rig.sun.intensity);
+  sunlight.position.set(...rig.sun.from);
+  sunlight.castShadow = true;
+  sunlight.shadow.mapSize.set(2048, 2048);
+  sunlight.shadow.camera.left = -7;
+  sunlight.shadow.camera.right = 7;
+  sunlight.shadow.camera.top = 7;
+  sunlight.shadow.camera.bottom = -7;
+  sunlight.shadow.camera.near = 1;
+  sunlight.shadow.camera.far = 26;
+  sunlight.shadow.normalBias = 0.03;
+  sunlight.shadow.bias = -0.0001;
+  sunlight.shadow.radius = rig.sun.shadowRadius;
+  scene.add(sunlight);
+}
+
 function mount(container: HTMLElement): void {
   const renderer = new WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0xdfeaee, 0);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFSoftShadowMap;
   renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.15;
 
   const canvas = renderer.domElement;
   canvas.tabIndex = 0;
@@ -108,28 +179,17 @@ function mount(container: HTMLElement): void {
   const camera = new PerspectiveCamera(48, 1, 0.1, 60);
   camera.rotation.order = 'YXZ';
 
-  scene.add(new HemisphereLight(0xfff9ea, 0x7a7b6c, 2.4));
-  scene.add(new AmbientLight(0xffffff, 0.35));
-  const sunlight = new DirectionalLight(0xfff7e6, 3.1);
-  sunlight.position.set(5, 9, 5);
-  sunlight.castShadow = true;
-  sunlight.shadow.mapSize.set(2048, 2048);
-  sunlight.shadow.camera.left = -7;
-  sunlight.shadow.camera.right = 7;
-  sunlight.shadow.camera.top = 7;
-  sunlight.shadow.camera.bottom = -7;
-  sunlight.shadow.camera.near = 1;
-  sunlight.shadow.camera.far = 26;
-  sunlight.shadow.normalBias = 0.03;
-  sunlight.shadow.bias = -0.0001;
-  scene.add(sunlight);
+  const trial = parseTrial(window.location.search);
+  document.body.dataset.lighting = trial.lighting;
+  installLighting(scene, renderer, LIGHTING[trial.lighting]);
 
   scene.add(createPatio());
   const flower = createFlower();
   flower.setView('uv');
   scene.add(flower.root);
 
-  let cameraState: CameraState = { kind: 'patio' };
+  const inspection = trial.inspection;
+  let cameraState: CameraState = inspection ? { kind: 'inspection', id: inspection } : { kind: 'patio' };
   let yaw = PATIO_POSE.yaw;
   let pitch = PATIO_POSE.pitch;
   let contextAvailable = true;
@@ -180,6 +240,10 @@ function mount(container: HTMLElement): void {
         setLookButtonsDisabled(true);
         if (travelStatus) travelStatus.textContent = 'Volviendo al patio…';
         break;
+      case 'inspection':
+        setAllControlsDisabled(true);
+        if (travelStatus) travelStatus.textContent = 'Vista de inspección · reverso de los pétalos';
+        break;
       default:
         assertNever(cameraState);
     }
@@ -188,6 +252,7 @@ function mount(container: HTMLElement): void {
   function render(): void {
     if (contextAvailable) {
       renderer.render(scene, camera);
+      publishRenderStats(canvas, renderer);
       canvas.dataset.ready = 'true';
     }
   }
@@ -424,7 +489,8 @@ function mount(container: HTMLElement): void {
   document.querySelector('#look-up')?.addEventListener('click', () => applyLookDelta(0, LOOK_STEP_RAD));
   document.querySelector('#look-down')?.addEventListener('click', () => applyLookDelta(0, -LOOK_STEP_RAD));
 
-  applyPose(PATIO_POSE.position, PATIO_POSE.yaw, PATIO_POSE.pitch);
+  const initialPose = inspection ? INSPECTION_POSES[inspection] : PATIO_POSE;
+  applyPose(initialPose.position, initialPose.yaw, initialPose.pitch);
   syncUiState();
   render();
 }
