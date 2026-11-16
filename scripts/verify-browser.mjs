@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
+import { measureFirstScreen, pixelStats, readRenderStats } from './scene-page.mjs';
 
 const output = 'test-results/patio';
 await mkdir(output, { recursive: true });
@@ -11,6 +12,11 @@ let context;
 let recording;
 const errors = [];
 const observations = [];
+const transferred = [];
+let desktopFirstScreen;
+let mobileFirstScreen;
+let patioRenderStats;
+let flowerRenderStats;
 
 try {
   browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
@@ -25,6 +31,10 @@ try {
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text());
   });
+  page.on('response', (response) => {
+    const url = response.url();
+    if (!url.startsWith('http://127.0.0.1:4174')) transferred.push(url);
+  });
 
   await page.goto('http://127.0.0.1:4174');
   const canvas = page.locator('canvas');
@@ -32,6 +42,13 @@ try {
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.ready === 'true');
   const settle = () => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await settle();
+  desktopFirstScreen = await measureFirstScreen(page);
+  assert.equal(desktopFirstScreen.scrollY, 0, 'Desktop starts at the top');
+  assert(desktopFirstScreen.viewportBottom <= desktopFirstScreen.innerHeight, 'Desktop viewport fits the first screen');
+  assert(desktopFirstScreen.selectorBottom <= desktopFirstScreen.innerHeight, 'Desktop comparison selector fits the first screen');
+  assert(desktopFirstScreen.scrollWidth <= desktopFirstScreen.innerWidth, 'Desktop has no horizontal overflow');
+  assert.equal(desktopFirstScreen.occluders, 0, 'No element covers the viewport');
+  patioRenderStats = await readRenderStats(page);
 
   const human = page.getByRole('radio', { name: 'Referencia humana', exact: true });
   const uv = page.getByRole('radio', { name: 'Contraste UV', exact: true });
@@ -48,7 +65,6 @@ try {
   await page.screenshot({ path: `${output}/patio-uv-desktop.png`, fullPage: true });
   const patioInitial = await canvas.screenshot();
 
-  // Look around with keyboard button (rotates without translating or approaching)
   await lookLeft.focus();
   await page.keyboard.press('Enter');
   await settle();
@@ -58,7 +74,6 @@ try {
   await settle();
   assert(patioInitial.equals(await canvas.screenshot()), 'Opposite look button restores original patio orientation');
 
-  // Drag on canvas over the flower: should look around, NOT trigger approach
   const bounds = await canvas.boundingBox();
   assert(bounds, 'Canvas has a visible bounding box');
   const cx = bounds.x + bounds.width * 0.5;
@@ -71,7 +86,6 @@ try {
   assert(!patioInitial.equals(await canvas.screenshot()), 'Pointer drag looks around the patio');
   assert.equal(await page.evaluate(() => document.body.dataset.camera), 'patio', 'Pointer drag does not trigger approach');
 
-  // Approach via HTML button, test duplicate click ignored, then cancel mid-travel
   await approachBtn.click();
   assert.equal(await page.evaluate(() => document.body.dataset.camera), 'approaching', 'Approach button starts travel');
   assert(await approachBtn.isDisabled(), 'Approach button is disabled during travel');
@@ -80,7 +94,6 @@ try {
   await settle();
   assert.equal(await page.evaluate(() => document.body.dataset.camera), 'patio', 'Return button cancels approach and returns to patio');
 
-  // Click directly on the flower to approach
   await page.mouse.click(cx, cy);
   await page.waitForFunction(() => document.body.dataset.camera === 'flower');
   await settle();
@@ -89,8 +102,8 @@ try {
 
   await page.screenshot({ path: `${output}/flower-uv-desktop.png`, fullPage: true });
   const flowerUv = await canvas.screenshot();
+  flowerRenderStats = await readRenderStats(page);
 
-  // Stable perceptual comparison at arrival
   await human.check();
   await settle();
   const flowerHuman = await canvas.screenshot();
@@ -105,19 +118,16 @@ try {
   await settle();
   assert(flowerUv.equals(await canvas.screenshot()), 'Repeated mode toggles preserve exact camera pose and UV rendering');
 
-  // Keyboard radio selection
   await uv.focus();
   await page.keyboard.press('ArrowUp');
   assert(await human.isChecked(), 'Keyboard radio selection switches to human mode');
   await page.keyboard.press('ArrowDown');
   assert(await uv.isChecked(), 'Keyboard radio selection returns to UV mode');
 
-  // Return to patio
   await returnBtn.click();
   await page.waitForFunction(() => document.body.dataset.camera === 'patio');
   await settle();
 
-  // Reduced motion check
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await approachBtn.click();
   assert.equal(await page.evaluate(() => document.body.dataset.camera), 'flower', 'Reduced motion snaps immediately to flower');
@@ -126,9 +136,15 @@ try {
   assert.equal(await page.evaluate(() => document.body.dataset.camera), 'patio', 'Reduced motion snaps immediately back to patio');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
 
-  // Narrow mobile viewport (390x844)
   await page.setViewportSize({ width: 390, height: 844 });
   await settle();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  mobileFirstScreen = await measureFirstScreen(page);
+  assert(mobileFirstScreen.viewportBottom <= mobileFirstScreen.innerHeight, 'Mobile viewport fits the first screen');
+  assert(mobileFirstScreen.selectorBottom <= mobileFirstScreen.innerHeight, 'Mobile comparison selector fits the first screen');
+  assert(mobileFirstScreen.sceneBarBottom <= mobileFirstScreen.innerHeight, 'Mobile scene controls fit the first screen');
+  assert(mobileFirstScreen.smallestTarget.width >= 36 && mobileFirstScreen.smallestTarget.height >= 36, 'Mobile targets are at least 36px');
+  assert.equal(mobileFirstScreen.occluders, 0, 'No element covers the mobile viewport');
   const dimensions = await page.evaluate(() => ({
     viewport: innerWidth,
     page: document.documentElement.scrollWidth,
@@ -149,7 +165,6 @@ try {
   await page.waitForFunction(() => document.body.dataset.camera === 'patio');
   await settle();
 
-  // WebGL context loss during travel & restoration
   await approachBtn.click();
   const lossState = await page.evaluate(async () => {
     const el = document.querySelector('canvas');
@@ -174,7 +189,6 @@ try {
 
   observations.push('Desktop and narrow viewports render patio and flower; look-around, drag-vs-click, approach, cancel, return, reduced motion, 5 mode toggles, and context-loss recovery pass.');
 
-  // Forced WebGL initialization failure fallback
   const fallback = await context.newPage();
   await fallback.addInitScript(() => {
     const original = HTMLCanvasElement.prototype.getContext;
@@ -191,7 +205,18 @@ try {
   await fallback.close();
   observations.push('Forced WebGL initialization failure shows readable recovery text and source links.');
 
-  // Browser-emulated touch look and tap-to-approach
+  const reverse = await context.newPage();
+  await reverse.goto('http://127.0.0.1:4174/?pose=reverse');
+  await reverse.waitForSelector('canvas[data-ready="true"]');
+  const reverseCanvas = reverse.locator('canvas');
+  const reverseUv = await reverseCanvas.screenshot();
+  await reverse.getByRole('radio', { name: 'Referencia humana', exact: true }).check();
+  await reverse.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert(reverseUv.equals(await reverseCanvas.screenshot()), 'Petal reverse is identical in both views');
+  assert.equal((await pixelStats(reverse, reverseUv)).violet, 0, 'Petal reverse contains no violet guide pixels');
+  await reverse.close();
+  assert.equal(transferred.length, 0, `External requests: ${transferred.join(', ')}`);
+
   const touchContext = await browser.newContext({
     viewport: { width: 390, height: 844 },
     hasTouch: true,
@@ -233,6 +258,10 @@ try {
     graphics: 'Chromium software WebGL via SwiftShader',
     observations,
     errors,
+    firstScreen: { desktop: desktopFirstScreen, mobile: mobileFirstScreen },
+    renderStats: { patio: patioRenderStats, flower: flowerRenderStats },
+    assetBytes: 0,
+    lighting: 'directional',
   }, null, 2));
   console.log(observations.join('\n'));
   console.log(`Screenshots, recording, and verification metadata saved in ${output}.`);

@@ -2,10 +2,10 @@
 
 ## Next experiment
 
-- Execute the [bee patio plan](docs/plans/20261116-bee-patio.md) when implementation
-  is requested. Keep first-person inspection and the supported signal central.
 - Evaluate whether the patio context improves understanding of the floral contrast.
 - Validate the interaction on a physical mobile device and another browser.
+- Measure approach frame timing with hardware WebGL. SwiftShader captures do not
+  establish mobile rendering performance.
 - Revise the lesson or encoding if the comparison is unclear before adding scope.
 
 ## Later candidates

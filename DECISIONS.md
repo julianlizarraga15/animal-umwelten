@@ -1,5 +1,22 @@
 # Decisions
 
+## 2026-11-16: Retain directional daylight for the visual-quality scene
+
+Treatment B uses a lower fill-to-key ratio and raking sunlight from camera right.
+At the desktop flower pose, it reduced crushed pixels from 3.64% under Treatment
+A to 1.48% while keeping the violet fraction within 1% of Treatment A. Image
+review also showed clearer shadow separation between overlapping petal cups.
+
+Set `directional` as `DEFAULT_LIGHTING`. A small emissive lift on the dark disk
+florets then reduced candidate crushed pixels to 0.27% on desktop and 0.49% on
+mobile. Candidate clipped pixels remain 0%. The visible violet/yellow encoding
+is unchanged and remains an explanatory display choice.
+
+Use deterministic field-generated textures and merged two-faced lamina geometry.
+The adaxial material alone accepts the selected view texture. The abaxial
+material has no view-dependent input, which keeps the documented UV guide off
+the petal backs.
+
 ## 2026-11-16: Replace orbit with first-person patio look and one flower approach
 
 Implemented `docs/plans/20261116-bee-patio.md` by adding `src/patio.ts` (tiled

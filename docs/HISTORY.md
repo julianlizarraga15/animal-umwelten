@@ -1,5 +1,21 @@
 # History
 
+## 2026-11-16: Naturalistic flower and patio upgrade
+
+Rebuilt the flower as deterministic curved laminae with upper-only UV textures,
+venation, two attached leaves, a receptacle, and 610 instanced disk florets.
+Rebuilt the pot as an open lathe profile with a mounded soil surface and 90 soil
+clods. Added procedural patio surface maps with no external assets.
+
+Compared soft and directional daylight in matching Chromium captures. Retained
+directional daylight because it separated overlapping petals and reduced dark
+pixel clipping. Moved the view selector below the scene and fitted the complete
+scene bar in the first screen at 1440x1000 and 390x844.
+
+`npm run typecheck`, `npm run build`, and `npm run check:browser` pass. The
+browser check includes first-screen bounds, viewport occlusion, reverse-face
+mode equality, renderer statistics, and the existing interaction coverage.
+
 ## 2026-11-16: Bee patio implementation
 
 Implemented `docs/plans/20261116-bee-patio.md`: placed the schematic
