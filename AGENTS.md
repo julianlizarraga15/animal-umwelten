@@ -10,7 +10,7 @@
 - Update `PROJECT_STATUS.md` when stopping or handing off. Record the next 1–3 actions and actual validation. Use the local handoff skill.
 - Record settled decisions and their reasons in `DECISIONS.md`, future work in `BACKLOG.md`, and meaningful completed milestones in `docs/HISTORY.md`. Avoid duplicating session transcripts.
 - Cite scientific sources when introducing perceptual claims. Distinguish documented sensory capability, visual encoding, and speculation. Never present a rendering as literal animal subjective experience.
-- Run checks appropriate to the actual change. No application build or test commands exist yet. Add commands here when tooling exists.
+- Run checks appropriate to the actual change. Use `npm run typecheck`, `npm run build`, and `npm run check:browser` for application changes. The browser check requires Playwright Chromium and writes evidence to `test-results/patio/` (preserving `test-results/flower/` as historical evidence).
 - Never commit credentials, tokens, `.env` values, or generated dependencies.
 
 ## Pstack model configuration

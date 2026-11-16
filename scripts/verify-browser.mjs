@@ -1,0 +1,244 @@
+import assert from 'node:assert/strict';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { chromium } from 'playwright';
+import { preview } from 'vite';
+
+const output = 'test-results/patio';
+await mkdir(output, { recursive: true });
+const server = await preview({ preview: { host: '127.0.0.1', port: 4174, strictPort: true } });
+let browser;
+let context;
+let recording;
+const errors = [];
+const observations = [];
+
+try {
+  browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  context = await browser.newContext({
+    viewport: { width: 1440, height: 1000 },
+    deviceScaleFactor: 1,
+    recordVideo: { dir: output, size: { width: 1440, height: 1000 } },
+  });
+  const page = await context.newPage();
+  recording = page.video();
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+
+  await page.goto('http://127.0.0.1:4174');
+  const canvas = page.locator('canvas');
+  await canvas.waitFor({ state: 'visible' });
+  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.ready === 'true');
+  const settle = () => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await settle();
+
+  const human = page.getByRole('radio', { name: 'Referencia humana', exact: true });
+  const uv = page.getByRole('radio', { name: 'Contraste UV', exact: true });
+  const approachBtn = page.getByRole('button', { name: 'Acercarse a la flor', exact: true });
+  const returnBtn = page.getByRole('button', { name: 'Volver al patio', exact: true });
+  const lookLeft = page.getByRole('button', { name: 'Mirar a la izquierda', exact: true });
+  const lookRight = page.getByRole('button', { name: 'Mirar a la derecha', exact: true });
+
+  assert(await uv.isChecked(), 'Bee-signal UV mode is initially selected');
+  assert.equal(await page.evaluate(() => document.body.dataset.camera), 'patio', 'Starts at patio viewpoint');
+  assert(await approachBtn.isEnabled(), 'Approach button is enabled in patio');
+  assert(await returnBtn.isDisabled(), 'Return button is disabled in patio');
+
+  await page.screenshot({ path: `${output}/patio-uv-desktop.png`, fullPage: true });
+  const patioInitial = await canvas.screenshot();
+
+  // Look around with keyboard button (rotates without translating or approaching)
+  await lookLeft.focus();
+  await page.keyboard.press('Enter');
+  await settle();
+  assert(!patioInitial.equals(await canvas.screenshot()), 'Keyboard look-left changes camera orientation');
+  assert.equal(await page.evaluate(() => document.body.dataset.camera), 'patio', 'Looking around stays in patio state');
+  await lookRight.click();
+  await settle();
+  assert(patioInitial.equals(await canvas.screenshot()), 'Opposite look button restores original patio orientation');
+
+  // Drag on canvas over the flower: should look around, NOT trigger approach
+  const bounds = await canvas.boundingBox();
+  assert(bounds, 'Canvas has a visible bounding box');
+  const cx = bounds.x + bounds.width * 0.5;
+  const cy = bounds.y + bounds.height * 0.48;
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx + 80, cy + 25, { steps: 8 });
+  await page.mouse.up();
+  await settle();
+  assert(!patioInitial.equals(await canvas.screenshot()), 'Pointer drag looks around the patio');
+  assert.equal(await page.evaluate(() => document.body.dataset.camera), 'patio', 'Pointer drag does not trigger approach');
+
+  // Approach via HTML button, test duplicate click ignored, then cancel mid-travel
+  await approachBtn.click();
+  assert.equal(await page.evaluate(() => document.body.dataset.camera), 'approaching', 'Approach button starts travel');
+  assert(await approachBtn.isDisabled(), 'Approach button is disabled during travel');
+  await returnBtn.click();
+  await page.waitForFunction(() => document.body.dataset.camera === 'patio');
+  await settle();
+  assert.equal(await page.evaluate(() => document.body.dataset.camera), 'patio', 'Return button cancels approach and returns to patio');
+
+  // Click directly on the flower to approach
+  await page.mouse.click(cx, cy);
+  await page.waitForFunction(() => document.body.dataset.camera === 'flower');
+  await settle();
+  assert.equal(await page.evaluate(() => document.body.dataset.camera), 'flower', 'Clicking the flower completes approach');
+  assert(await returnBtn.isEnabled(), 'Return button is enabled at the flower');
+
+  await page.screenshot({ path: `${output}/flower-uv-desktop.png`, fullPage: true });
+  const flowerUv = await canvas.screenshot();
+
+  // Stable perceptual comparison at arrival
+  await human.check();
+  await settle();
+  const flowerHuman = await canvas.screenshot();
+  assert(!flowerUv.equals(flowerHuman), 'Switching to human reference changes upper petal rendering at fixed pose');
+  await page.screenshot({ path: `${output}/flower-human-desktop.png`, fullPage: true });
+
+  for (let i = 0; i < 5; i++) {
+    await uv.check();
+    await human.check();
+  }
+  await uv.check();
+  await settle();
+  assert(flowerUv.equals(await canvas.screenshot()), 'Repeated mode toggles preserve exact camera pose and UV rendering');
+
+  // Keyboard radio selection
+  await uv.focus();
+  await page.keyboard.press('ArrowUp');
+  assert(await human.isChecked(), 'Keyboard radio selection switches to human mode');
+  await page.keyboard.press('ArrowDown');
+  assert(await uv.isChecked(), 'Keyboard radio selection returns to UV mode');
+
+  // Return to patio
+  await returnBtn.click();
+  await page.waitForFunction(() => document.body.dataset.camera === 'patio');
+  await settle();
+
+  // Reduced motion check
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await approachBtn.click();
+  assert.equal(await page.evaluate(() => document.body.dataset.camera), 'flower', 'Reduced motion snaps immediately to flower');
+  await settle();
+  await returnBtn.click();
+  assert.equal(await page.evaluate(() => document.body.dataset.camera), 'patio', 'Reduced motion snaps immediately back to patio');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+  // Narrow mobile viewport (390x844)
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle();
+  const dimensions = await page.evaluate(() => ({
+    viewport: innerWidth,
+    page: document.documentElement.scrollWidth,
+    canvas: {
+      width: document.querySelector('canvas')?.width ?? 0,
+      height: document.querySelector('canvas')?.height ?? 0,
+    },
+  }));
+  assert(dimensions.page <= dimensions.viewport, 'Narrow layout has no horizontal overflow');
+  assert(dimensions.canvas.width > 0 && dimensions.canvas.height > 0, 'Canvas resizes with nonzero drawing area');
+  await page.screenshot({ path: `${output}/patio-uv-mobile.png`, fullPage: true });
+
+  await approachBtn.click();
+  await page.waitForFunction(() => document.body.dataset.camera === 'flower');
+  await settle();
+  await page.screenshot({ path: `${output}/flower-uv-mobile.png`, fullPage: true });
+  await returnBtn.click();
+  await page.waitForFunction(() => document.body.dataset.camera === 'patio');
+  await settle();
+
+  // WebGL context loss during travel & restoration
+  await approachBtn.click();
+  const lossState = await page.evaluate(async () => {
+    const el = document.querySelector('canvas');
+    const ext = el?.getContext('webgl2')?.getExtension('WEBGL_lose_context');
+    if (!ext) throw new Error('Context-loss extension unavailable');
+    ext.loseContext();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const state = {
+      messageVisible: !(document.querySelector('#webgl-error')?.hidden ?? true),
+      buttonsDisabled: [...document.querySelectorAll('.camera-controls button')].every((b) => b.disabled),
+      cameraState: document.body.dataset.camera,
+    };
+    ext.restoreContext();
+    return state;
+  });
+  assert(lossState.messageVisible && lossState.buttonsDisabled, 'Context loss displays recovery guidance and disables controls');
+  assert.equal(lossState.cameraState, 'patio', 'Interrupted travel resets cleanly to stationary patio state');
+  await page.waitForFunction(() => document.querySelector('#webgl-error')?.hidden && !document.querySelector('canvas')?.hidden);
+  await settle();
+  assert.equal(await page.evaluate(() => document.body.dataset.camera), 'patio', 'Interrupted travel does not resume after restoration');
+  assert(await approachBtn.isEnabled(), 'Approach button is usable again after context restoration');
+
+  observations.push('Desktop and narrow viewports render patio and flower; look-around, drag-vs-click, approach, cancel, return, reduced motion, 5 mode toggles, and context-loss recovery pass.');
+
+  // Forced WebGL initialization failure fallback
+  const fallback = await context.newPage();
+  await fallback.addInitScript(() => {
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (kind, ...args) {
+      if (String(kind).startsWith('webgl')) return null;
+      return original.call(this, kind, ...args);
+    };
+  });
+  await fallback.goto('http://127.0.0.1:4174');
+  await fallback.locator('#webgl-error').waitFor({ state: 'visible' });
+  await fallback.locator('summary').click();
+  assert(await fallback.getByRole('link', { name: /Horth/ }).isVisible(), 'Scientific sources remain available without WebGL');
+  await fallback.screenshot({ path: `${output}/webgl-fallback.png`, fullPage: true });
+  await fallback.close();
+  observations.push('Forced WebGL initialization failure shows readable recovery text and source links.');
+
+  // Browser-emulated touch look and tap-to-approach
+  const touchContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  try {
+    const touchPage = await touchContext.newPage();
+    await touchPage.goto('http://127.0.0.1:4174');
+    await touchPage.waitForSelector('canvas[data-ready="true"]');
+    const touchCanvas = touchPage.locator('canvas');
+    await touchPage.getByRole('button', { name: 'Acercarse a la flor', exact: true }).tap();
+    await touchPage.waitForFunction(() => document.body.dataset.camera === 'flower');
+    await touchPage.getByRole('button', { name: 'Volver al patio', exact: true }).tap();
+    await touchPage.waitForFunction(() => document.body.dataset.camera === 'patio');
+
+    await touchCanvas.scrollIntoViewIfNeeded();
+    const touchBounds = await touchCanvas.boundingBox();
+    assert(touchBounds, 'Touch canvas is visible');
+    const beforeTouch = await touchCanvas.screenshot();
+    const session = await touchContext.newCDPSession(touchPage);
+    const tx = touchBounds.x + touchBounds.width * 0.5;
+    const ty = touchBounds.y + touchBounds.height * 0.5;
+    await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tx, y: ty, id: 1 }] });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: tx + 60, y: ty + 20, id: 1 }] });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    assert(!beforeTouch.equals(await touchCanvas.screenshot()), 'Touch drag looks around the patio');
+    assert.equal(await touchPage.evaluate(() => document.body.dataset.camera), 'patio', 'Touch drag does not trigger approach');
+    observations.push('Browser-emulated touch look, approach, and return pass; no physical mobile device tested.');
+  } finally {
+    await touchContext.close();
+  }
+
+  assert.equal(errors.length, 0, `Application errors: ${errors.join('\n')}`);
+  await writeFile(`${output}/verification.json`, JSON.stringify({
+    browser: browser.version(),
+    platform: process.platform,
+    desktop: '1440x1000',
+    mobile: '390x844',
+    graphics: 'Chromium software WebGL via SwiftShader',
+    observations,
+    errors,
+  }, null, 2));
+  console.log(observations.join('\n'));
+  console.log(`Screenshots, recording, and verification metadata saved in ${output}.`);
+} finally {
+  await context?.close();
+  await recording?.saveAs(`${output}/interaction.webm`);
+  await browser?.close();
+  await new Promise((resolve, reject) => server.httpServer.close((error) => (error ? reject(error) : resolve())));
+}
