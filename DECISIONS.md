@@ -1,5 +1,36 @@
 # Decisions
 
+## 2026-11-17: Require visual acceptance of the garden frame
+
+The user finds the implemented renewal substantially short of the selected
+concept and requests a qualitative leap. Prioritize full-viewport framing,
+layered vegetation, authored-quality hero assets, and filtered light. Assess
+explicit visual criteria against actual browser captures before expanding motion.
+Passing functional checks cannot stand in for that judgment. The
+[art-quality plan](docs/plans/20261117-garden-art-quality.md) supersedes the previous
+renewal plan. Its proposed ambient-motion policy remains unimplemented.
+
+
+## 2026-11-17: Build the afternoon garden in the existing scene modules
+
+The renewal stays in `src/patio.ts`, `src/flower.ts`, `src/spider-web.ts`, and
+`src/main.ts`. Hero forms are procedural meshes, not imported models. The new
+opening camera looks across the flower toward the path and web. The bee is an
+artistic character: it moves only during the flower approach and rests
+afterward, including under reduced motion. Garden surfaces still have no
+animal-vision map. The generated image is not a delivery target for pixel
+parity. See the [garden renewal plan](docs/plans/20261117-garden-renewal.md).
+
+## 2026-11-17: Use Garden of the Afternoon as the renewal target
+
+The user selected the generated afternoon concept after finding the cozy pass
+visually too similar to the old scene. Plan a substantial composition and asset
+renewal, with one real browser frame as the first milestone. Preserve the two
+educational interactions while allowing new camera poses and interface layout.
+Keep Three.js. The concept establishes artistic intent, not exact visual parity
+or measured device capability. See the
+[garden renewal plan](docs/plans/20261117-garden-renewal.md).
+
 ## 2026-11-17: Select warm late-afternoon lighting and bounded cozy patio motion
 
 After comparing the warm late-afternoon (`afternoon`) and cooler shaded

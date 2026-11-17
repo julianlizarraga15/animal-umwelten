@@ -10,7 +10,7 @@ export type Sector = typeof WEB_SECTORS[number];
 export type WebView = 'human' | 'vibrations';
 type Round = { kind: 'explore' } | { kind: 'search'; source: Sector } | { kind: 'found'; source: Sector };
 type Signal = { kind: 'quiet' } | { kind: 'pulse'; source: Sector; started: number } | { kind: 'static'; source: Sector };
-export const WEB_CENTER = new Vector3(2.2, -0.3, -0.8);
+export const WEB_CENTER = new Vector3(2.05, 0.22, 1.22);
 const PULSE_DURATION = 1800;
 const SPIDER_APPROACH_MS = 650;
 
@@ -33,19 +33,28 @@ export function createSpiderWeb() {
   line(Array.from({ length: 65 }, (_, i) => point(i / 64 * Math.PI * 2, 1.4)), silk);
   const stemMaterial = new MeshStandardMaterial({ color: '#676b3f', roughness: 1 });
   const leafMaterial = new MeshStandardMaterial({ color: '#667b48', roughness: 1 });
-  for (const angle of [0, Math.PI * 0.65, Math.PI * 1.3]) {
-    const anchor = point(angle, 1.65);
-    const stem = new Mesh(new CylinderGeometry(0.017, 0.035, 2.65, 7), stemMaterial);
-    stem.position.set(anchor.x, -1.11, anchor.z);
+  for (const angle of [0.15, Math.PI * 0.7, Math.PI * 1.28]) {
+    const anchor = point(angle, 1.72);
+    const drop = 3.5;
+    const stem = new Mesh(new CylinderGeometry(0.016, 0.04, drop, 7), stemMaterial);
+    stem.position.set(anchor.x, -drop / 2 + 0.04, anchor.z);
+    stem.castShadow = true;
     root.add(stem);
     line([point(angle, 1.35), anchor], silk);
-    for (const side of [-1, 1]) {
-      const leaf = new Mesh(new SphereGeometry(0.12, 10, 6), leafMaterial);
-      leaf.scale.set(1, 0.13, 2.2);
-      leaf.rotation.z = side * 0.4;
-      leaf.rotation.y = angle;
-      leaf.position.set(anchor.x + Math.cos(angle) * side * 0.1, -0.4 - (side + 1) * 0.3, anchor.z + Math.sin(angle) * side * 0.1);
-      root.add(leaf);
+    for (const height of [0.45, 1.15, 1.9]) {
+      for (const side of [-1, 1]) {
+        const leaf = new Mesh(new SphereGeometry(0.1, 8, 5), leafMaterial);
+        leaf.scale.set(1, 0.14, 2.15);
+        leaf.rotation.z = side * 0.42;
+        leaf.rotation.y = angle + side * 0.25;
+        leaf.position.set(
+          anchor.x * (0.45 + height * 0.12) + Math.cos(angle + side) * 0.08,
+          -height,
+          anchor.z * (0.45 + height * 0.12) + Math.sin(angle + side) * 0.08,
+        );
+        leaf.castShadow = true;
+        root.add(leaf);
+      }
     }
   }
   const spider = new Group();

@@ -4,94 +4,72 @@ Handoff updated: 2026-11-17
 
 ## Goal and current state
 
-Umwelt Explorer lets visitors explore a shared patio and compare two bounded
-animal-relevant signals. A schematic *Rudbeckia hirta* flower carries a bee UV
-contrast encoding. A horizontal spider web offers a vibration-direction
+Umwelt Explorer lets visitors explore one afternoon garden and compare two
+bounded animal-relevant signals. A schematic *Rudbeckia hirta* flower carries a
+bee UV contrast encoding. A horizontal spider web offers a vibration-direction
 interaction inspired by research on *Uloborus diversus*. The interface is in
 Spanish. Neither representation claims literal animal subjective experience.
 
-The spider increment and cozy patio atmosphere pass are complete. No deployment
-was performed. See `docs/plans/20261117-cozy-patio.md`.
+The current implementation fills the viewport with the garden and overlays
+navigation and representation controls. Scientific lessons open in a modal
+drawer. The opening uses human-reference mode. Layered procedural planting,
+a tilted flower head, a path, house, and bee character are implemented.
 
-## Completed increment
+This is an intermediate visual iteration. The latest screenshot still shows
+foreground leaves obscuring the flower, flat/repetitive vegetation, and large
+empty background areas. It does not meet the selected concept's artistic bar.
+The user requested committing and pushing the current changes to `origin/main`.
 
-- Reviewed plan: `docs/plans/20261117-spider-web.md`. Scientific evidence and
-  display limits: `docs/research/spider-vibrations.md`.
-- `src/spider-web.ts` owns web/spider/insect geometry, four numbered sectors,
-  and explicit exploration/search/found and pulse/static states.
-- `src/main.ts` retains one renderer and RAF scheduler, with flower and web
-  destinations, return/cancel, contextual controls and lessons, and scene hits.
-- Visitors touch different web points or use numbered buttons, summon a hidden
-  fly, follow a directional cue, retry, replay, and start another round.
-  Human/vibration switching preserves the camera and round. Finding the fly
-  reveals it; leaving or losing WebGL context resets the activity.
-- Reduced motion shows static cues. Midpulse preference changes settle them.
-  The app stops scheduling frames after travel and bounded pulse playback.
-- Independent plan and code reviews resolved a mobile heading overlap and a
-  context-loss verification timing gap. One owner wrote in an isolated worktree;
-  the reviewed implementation was copied byte-for-byte into this checkout.
+## Implemented changes
+
+- `src/patio.ts` owns garden placement, path, house, pots, and planting.
+- `src/flower.ts` owns remodeled flower geometry and bounded bee arrival.
+- `src/main.ts`, `index.html`, and `src/style.css` integrate responsive camera
+  framing, full-viewport controls, and the scientific lesson dialog.
+- Browser checks cover the revised layout, dialog, initial human mode, scene
+  hits, and existing flower/web behavior. Several screenshot comparisons now
+  use a pixel-difference tolerance rather than exact equality; they do not
+  establish exact render equality or artistic quality.
+- Plans, concept images, the independent art review, and style sheet are saved.
 
 ## Validation
 
-On 2026-11-17, Linux, Node v22.23.1, Chromium 159.0.8154.6, SwiftShader:
+On 2026-11-17, typecheck, production build, and `npm run check:browser` passed
+on Linux, Node v22.23.1, Chromium with SwiftShader. Build retains the Three.js
+chunk-size advisory. Chromium required existing libraries through
+`LD_LIBRARY_PATH=/tmp/umwelt-browser-libs/extracted/usr/lib/x86_64-linux-gnu`.
+Browser checks covered desktop/mobile layout, lesson dialog, flower/web actions,
+reduced motion, context loss, fallback, and emulated touch. Evidence is saved in
+`test-results/patio/`. `git diff --cached --check` passed before commit.
+No physical-phone, hardware-performance, or deployment validation is claimed.
 
-- `npm ci`, `npm run typecheck`, and `npm run build` passed. Build retains the
-  existing Vite advisory for the Three.js chunk larger than 500 kB.
-- `npm run check:browser` passed in this shared checkout with zero page/console
-  errors and external requests. This host required existing Chromium libraries
-  through `LD_LIBRARY_PATH=/tmp/umwelt-browser-libs/extracted/usr/lib/x86_64-linux-gnu`.
-- Existing bee approach/cancel/return, fixed-pose UV toggles, keyboard,
-  reverse-petal equality, fallback, touch, and WebGL recovery checks pass.
-- Web tests cover actual overview and sector scene clicks, distinct cues,
-  keyboard and emulated touch including drag rejection, hidden prey, wrong and
-  correct guesses, replay/new rounds, modes, reduced-motion changes, leaving,
-  and context loss during pulse/search/travel.
-- Five settled checks record unchanged RAF and WebGL draw counters. Real
-  context-loss probes hold test-only RAF timestamps to keep pulses/travel
-  active until the asynchronous event. Production timing is unchanged.
-- Desktop 1440x1000 and mobile 390x844 web control bars end at 985.84px and
-  788.38px. No horizontal overflow or sampled occluders. Final captures inspected.
-- Evidence: `test-results/patio/verification.json`, `interaction.webm`,
-  `web-vibrations-desktop.png`, `web-vibrations-mobile.png`, and
-  `web-found-human-desktop.png`. Historical flower/visual-quality evidence is
-  preserved. `git diff --check` passed.
+## Current visual target and next actions
 
-## Limits and next actions
-
-1. Ask 1–3 visitors to explain the two signals and what the colors/pulses mean.
-2. Check controls and readability on a physical phone. Emulated touch does not
-   establish physical-device usability or hardware WebGL performance.
-3. Configure static hosting when requested so visitors can test outside the
-   local development environment. No hosting has been configured.
-
-Web geometry, camera, sector count, palette, pulse speed, and hidden insect are
-teaching choices. The experiment does not model calibrated wave mechanics or
-active spider sensing. Patio surfaces carry no animal-vision maps. Primary
-sources, settled choices, and later candidates remain in `docs/research/`,
-`DECISIONS.md`, and `BACKLOG.md`.
-
-## Latest discussion
-
-Implemented the cozy patio plan (`docs/plans/20261117-cozy-patio.md`):
-
-- Compared `afternoon` (warm late-afternoon sun, peach plaster, violet-tinted
-  shadow fill) and `shade` (cooler diffused light) static treatments; selected
-  `afternoon` as the default lighting.
-- Added peach plaster, warm clay tiles, worn terracotta, a feathered wall water
-  stain, a repaired companion pot with seam and staples, a sage sprout between
-  tiles, and a curved foreground leaf in `src/patio.ts`.
-- Added smoother quintic camera easing and brief bounded plant sway on travel
-  arrival in `src/main.ts`, plus a restrained spider step/orientation upon
-  finding the fly in `src/spider-web.ts`. All motion settles completely and
-  respects `prefers-reduced-motion`.
-- Re-ran `npm run typecheck` and `npm run check:browser` on Windows (Node
-  v24.14.0, Playwright Chromium SwiftShader); all desktop (1440x1000), mobile
-  (390x844), reduced-motion, touch, reverse-petal, context-loss, and idle
-  RAF/draw-counter checks passed with zero errors and zero external requests.
+The implemented garden remains visually below the selected concept. The user
+requested an ambitious new plan. `docs/plans/20261117-garden-art-quality.md`
+supersedes the prior renewal plan for future work. It requires full-viewport
+composition, enclosing vegetation, production-quality hero assets, and filtered
+light before additional animation. Functional completion is not visual acceptance.
 
 Next actions:
 
-1. Ask 1–3 visitors to explore both signals in the updated patio and explain what
-   the colors and pulses represent.
-2. Check controls and WebGL performance on a physical phone.
-3. Configure static hosting when ready to share externally.
+1. Establish a shared style sheet and compare two compositions with clear hierarchy.
+2. Prove a flower-and-leaf study and material ensemble before expanding assets.
+3. Review three connected views independently against the concept and refine gaps.
+
+Ambient motion remains off in the current application. The new plan proposes a
+measured breeze with pause, reduced-motion, and hidden-page suspension; that
+policy and its tests have not been implemented. Asset authoring tools and target
+hardware remain unverified. No deployment or physical-device validation occurred.
+
+The visual review compared saved captures with the selected reference.
+See the validation section for current push checks.
+
+
+## Independent artistic review
+
+At the user's request, an independent agent reviewed the plan and both images.
+Seven accepted findings strengthen visual hierarchy, style coherence, detail
+rhythm, connected views, independent critique, asset capability, and interface
+states. Recorded in `docs/art-direction/art-quality-plan-review.md` and integrated
+into the plan. No application code or runtime validation changed in this turn.

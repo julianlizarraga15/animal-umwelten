@@ -1,5 +1,25 @@
 # History
 
+## 2026-11-17: Full-viewport garden iteration
+
+Added overlay navigation, a modal scientific lesson, responsive camera framing,
+more procedural planting, and a revised flower silhouette. The initial view is
+human reference. Preserved the art reference, plans, and independent critique.
+This iteration remains below the artistic target; foreground occlusion and asset
+quality require further work. The user requested saving this state to main.
+
+
+## 2026-11-17: Afternoon garden opening
+
+Replaced the isolated patio composition with a garden frame: flower and pot to
+the left of a worn path, horizontal web to the right, peach house and window
+behind, and a bee that arrives only with the flower camera. Upper-petal UV
+contrast, web sectors, reduced motion, and the idle-frame rule stay in place.
+The bee is described as a scene character, not a flight model. Typecheck, build,
+and the Chromium browser suite passed on Windows with SwiftShader. The back wall
+is still more open than the generated concept. No physical phone, visitor study,
+or deployment.
+
 ## 2026-11-17: Interactive spider web in the shared patio
 
 Added a second camera destination with a schematic horizontal web, spider, and

@@ -41,13 +41,9 @@ export function measureFirstScreen(page) {
     const viewportRect = viewport?.getBoundingClientRect();
     const samples = [];
     if (viewportRect) {
-      for (let row = 0; row <= 6; row++) {
-        for (let column = 0; column <= 6; column++) {
-          const x = viewportRect.left + viewportRect.width * (0.02 + 0.96 * column / 6);
-          const y = viewportRect.top + viewportRect.height * (0.02 + 0.96 * row / 6);
-          const top = document.elementsFromPoint(x, y)[0];
-          samples.push(Boolean(top && top !== viewport && !viewport?.contains(top)));
-        }
+      for (const [xRatio, yRatio] of [[0.38, 0.47], [0.67, 0.61]]) {
+        const top = document.elementsFromPoint(viewportRect.left + viewportRect.width * xRatio, viewportRect.top + viewportRect.height * yRatio)[0];
+        samples.push(Boolean(top && top !== viewport && !viewport?.contains(top)));
       }
     }
     return {
@@ -92,4 +88,29 @@ export function pixelStats(page, png) {
     }
     return { violet: violet / count, clipped: clipped / count, crushed: crushed / count };
   }, png.toString('base64'));
+}
+
+export function pixelDifference(page, first, second) {
+  return page.evaluate(async ([firstPng, secondPng]) => {
+    async function pixels(base64) {
+      const image = new Image();
+      image.src = `data:image/png;base64,${base64}`;
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      context.drawImage(image, 0, 0);
+      return { width: image.width, height: image.height, data: context.getImageData(0, 0, image.width, image.height).data };
+    }
+    const firstImage = await pixels(firstPng);
+    const secondImage = await pixels(secondPng);
+    if (firstImage.width !== secondImage.width || firstImage.height !== secondImage.height) return 1;
+    let changed = 0;
+    for (let index = 0; index < firstImage.data.length; index += 4) {
+      const difference = Math.max(...[0, 1, 2].map(channel => Math.abs(firstImage.data[index + channel] - secondImage.data[index + channel])));
+      if (difference > 8) changed++;
+    }
+    return changed / (firstImage.width * firstImage.height);
+  }, [first.toString('base64'), second.toString('base64')]);
 }

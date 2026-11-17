@@ -1,9 +1,17 @@
 # Backlog
 
+## Current priority
+
+- Execute the [art-quality plan](docs/plans/20261117-garden-art-quality.md).
+  Establish composition and hero-asset quality before more animation.
+  Earlier garden passes are implementation history, not visual acceptance.
+
+
 ## Next experiment
 
-- Follow the [cozy patio plan](docs/plans/20261117-cozy-patio.md), starting with
-  static composition and lighting before animation.
+- Fill the open back wall so the garden frame sits closer to the afternoon
+  concept, if that density is wanted. Procedural leaves are the current asset
+  path.
 
 - Evaluate whether visitors understand the spider's directional vibration cue
   and the difference between a visible signal encoding and animal vision.

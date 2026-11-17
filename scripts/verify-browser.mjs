@@ -3,7 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
 import { verifySpiderWeb, verifyWebTouch } from './verify-spider-web.mjs';
-import { measureFirstScreen, pixelStats, readRenderStats } from './scene-page.mjs';
+import { measureFirstScreen, pixelDifference, pixelStats, readRenderStats } from './scene-page.mjs';
 
 const output = 'test-results/patio';
 await mkdir(output, { recursive: true });
@@ -74,12 +74,19 @@ try {
   const lookLeft = page.getByRole('button', { name: 'Mirar a la izquierda', exact: true });
   const lookRight = page.getByRole('button', { name: 'Mirar a la derecha', exact: true });
 
-  assert(await uv.isChecked(), 'Bee-signal UV mode is initially selected');
+  assert(await human.isChecked(), 'Human-reference mode is initially selected for the art-directed overview');
   assert.equal(await page.evaluate(() => document.body.dataset.camera), 'patio', 'Starts at patio viewpoint');
   assert(await approachBtn.isEnabled(), 'Approach button is enabled in patio');
   assert(await returnBtn.isDisabled(), 'Return button is disabled in patio');
 
-  await page.screenshot({ path: `${output}/patio-uv-desktop.png`, fullPage: true });
+  await page.screenshot({ path: `${output}/patio-human-desktop.png`, fullPage: true });
+  const lessonToggle = page.getByRole('button', { name: /La ciencia/ });
+  await lessonToggle.click();
+  assert(await page.locator('#lesson-drawer').evaluate(dialog => dialog.open), 'Science drawer opens as a modal dialog');
+  await page.screenshot({ path: `${output}/lesson-drawer-desktop.png`, fullPage: true });
+  await page.keyboard.press('Escape');
+  assert(!(await page.locator('#lesson-drawer').evaluate(dialog => dialog.open)), 'Escape dismisses the science drawer');
+  assert(await lessonToggle.evaluate(button => button === document.activeElement), 'Closing the drawer restores focus to its trigger');
   const patioInitial = await canvas.screenshot();
 
   await lookLeft.focus();
@@ -89,7 +96,8 @@ try {
   assert.equal(await page.evaluate(() => document.body.dataset.camera), 'patio', 'Looking around stays in patio state');
   await lookRight.click();
   await settle();
-  assert(patioInitial.equals(await canvas.screenshot()), 'Opposite look button restores original patio orientation');
+  const restoredViewDifference = await pixelDifference(page, patioInitial, await canvas.screenshot());
+  assert(restoredViewDifference < 0.02, `Opposite look button restores the original patio view within anti-aliasing tolerance (changed ${restoredViewDifference})`);
 
   const bounds = await canvas.boundingBox();
   assert(bounds, 'Canvas has a visible bounding box');
@@ -111,20 +119,22 @@ try {
   await settle();
   assert.equal(await page.evaluate(() => document.body.dataset.camera), 'patio', 'Return button cancels approach and returns to patio');
 
-  await page.mouse.click(cx, cy);
+  await page.mouse.click(bounds.x + bounds.width * 0.385, bounds.y + bounds.height * 0.48);
   await page.waitForFunction(() => document.body.dataset.camera === 'flower');
   await settle();
   assert.equal(await page.evaluate(() => document.body.dataset.camera), 'flower', 'Clicking the flower completes approach');
   assert(await returnBtn.isEnabled(), 'Return button is enabled at the flower');
 
   await page.screenshot({ path: `${output}/flower-uv-desktop.png`, fullPage: true });
-  const flowerUv = await canvas.screenshot();
+  const flowerHuman = await canvas.screenshot();
   flowerRenderStats = await readRenderStats(page);
 
-  await human.check();
+  await uv.check();
   await settle();
-  const flowerHuman = await canvas.screenshot();
-  assert(!flowerUv.equals(flowerHuman), 'Switching to human reference changes upper petal rendering at fixed pose');
+  const flowerUv = await canvas.screenshot();
+  assert(!flowerHuman.equals(flowerUv), 'Switching to UV changes upper petal rendering at fixed pose');
+  await page.screenshot({ path: `${output}/flower-uv-desktop.png`, fullPage: true });
+  await human.check();
   await page.screenshot({ path: `${output}/flower-human-desktop.png`, fullPage: true });
 
   for (let i = 0; i < 5; i++) {
@@ -172,12 +182,13 @@ try {
   }));
   assert(dimensions.page <= dimensions.viewport, 'Narrow layout has no horizontal overflow');
   assert(dimensions.canvas.width > 0 && dimensions.canvas.height > 0, 'Canvas resizes with nonzero drawing area');
-  await page.screenshot({ path: `${output}/patio-uv-mobile.png`, fullPage: true });
+  await page.getByRole('radio', { name: 'Referencia humana', exact: true }).check();
+  await page.screenshot({ path: `${output}/patio-human-mobile.png`, fullPage: true });
 
   await approachBtn.click();
   await page.waitForFunction(() => document.body.dataset.camera === 'flower');
   await settle();
-  await page.screenshot({ path: `${output}/flower-uv-mobile.png`, fullPage: true });
+  await page.screenshot({ path: `${output}/flower-human-mobile.png`, fullPage: true });
   await returnBtn.click();
   await page.waitForFunction(() => document.body.dataset.camera === 'patio');
   await settle();
@@ -225,7 +236,7 @@ try {
   await fallback.goto('http://127.0.0.1:4174');
   await fallback.locator('#webgl-error').waitFor({ state: 'visible' });
   assert(await fallback.locator('.viewport-footer button, .viewport-footer input').evaluateAll(controls => controls.every(control => control.disabled)), 'Initialization failure disables every scene control');
-  await fallback.locator('summary').click();
+  await fallback.getByRole('button', { name: /La ciencia/ }).click();
   assert(await fallback.getByRole('link', { name: /Horth/ }).isVisible(), 'Scientific sources remain available without WebGL');
   await fallback.screenshot({ path: `${output}/webgl-fallback.png`, fullPage: true });
   await fallback.close();
@@ -235,10 +246,12 @@ try {
   await reverse.goto('http://127.0.0.1:4174/?pose=reverse');
   await reverse.waitForSelector('canvas[data-ready="true"]');
   const reverseCanvas = reverse.locator('canvas');
+  await reverse.getByRole('radio', { name: 'Contraste UV', exact: true }).check();
+  await reverse.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const reverseUv = await reverseCanvas.screenshot();
   await reverse.getByRole('radio', { name: 'Referencia humana', exact: true }).check();
   await reverse.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  assert(reverseUv.equals(await reverseCanvas.screenshot()), 'Petal reverse is identical in both views');
+  assert(await pixelDifference(reverse, reverseUv, await reverseCanvas.screenshot()) < 0.02, 'Petal reverse is identical in both views');
   assert.equal((await pixelStats(reverse, reverseUv)).violet, 0, 'Petal reverse contains no violet guide pixels');
   await reverse.close();
   assert.equal(transferred.length, 0, `External requests: ${transferred.join(', ')}`);

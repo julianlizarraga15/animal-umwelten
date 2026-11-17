@@ -3,6 +3,7 @@ import {
   IcosahedronGeometry, InstancedMesh, LatheGeometry, Matrix4, Mesh, MeshStandardMaterial,
   PlaneGeometry, Quaternion, TorusGeometry, TubeGeometry, CatmullRomCurve3, Vector2, Vector3,
 } from 'three';
+import { WEB_CENTER } from './spider-web';
 import {
   colorTexture, mixRgb, randomStream, reliefTexture, rgb, smoothstep, tileableNoise,
   type Field, type Random, type Raster, type Rgb, type Rgba,
@@ -20,6 +21,9 @@ export type PatioScene = {
   readonly root: Group;
   readonly setSway: (amount: number) => void;
 };
+
+/** Hero flower and its pot share this bed. The flower head sits about 1.5 units above it. */
+export const FLOWER_BED = new Vector3(-1.12, 0, 0.28);
 
 function noisyFields(base: string, random: Random, period: number, amount: number) {
   const noise = tileableNoise(random, period);
@@ -97,7 +101,25 @@ const SURFACES = {
   },
   soil: {
     raster: { width: 128, height: 128 }, repeat: [3, 3], roughness: 1, bumpScale: 0.16,
-    fields: (random) => noisyFields('#4a392a', random, 32, 0.45),
+    fields: (random) => noisyFields('#6b5140', random, 32, 0.4),
+  },
+  path: {
+    raster: { width: 256, height: 512 }, repeat: [1.4, 6], roughness: 0.96, bumpScale: 0.07,
+    fields(random) {
+      const noise = tileableNoise(random, 8);
+      const wear = tileableNoise(random, 4);
+      const clay = rgb('#c48462');
+      const worn = rgb('#a56a4e');
+      const grout = rgb('#8d735f');
+      return {
+        albedo: (s, t) => {
+          const brick = Math.min(s % 0.5, 0.5 - s % 0.5, (t + (Math.floor(s * 2) % 2) * 0.08) % 0.16, 0.16 - (t + (Math.floor(s * 2) % 2) * 0.08) % 0.16);
+          if (brick < 0.012) return grout;
+          return mixRgb(clay, worn, noise(s, t) * 0.45 + wear(s, t) * 0.35);
+        },
+        relief: (s, t) => 0.55 + noise(s, t) * 0.3 - wear(s, t) * 0.12,
+      };
+    },
   },
   waterStain: {
     raster: { width: 128, height: 128 }, repeat: [1, 1], roughness: 0.96, bumpScale: 0.02,
@@ -215,96 +237,320 @@ function createTileSprout(sageMat: MeshStandardMaterial): Group {
   return sprout;
 }
 
+function addLeaf(parent: Group, material: MeshStandardMaterial, length: number, width: number, arch: number, pose: { x: number; y: number; z: number; yaw: number; pitch: number; roll?: number }, cast = true): Mesh {
+  const leaf = new Mesh(curvedLeafGeometry(length, width, arch, 0.04), material);
+  leaf.position.set(pose.x, pose.y, pose.z);
+  leaf.rotation.set(pose.pitch, pose.yaw, pose.roll ?? 0);
+  leaf.castShadow = cast;
+  leaf.receiveShadow = true;
+  parent.add(leaf);
+  return leaf;
+}
+
+function plantSpike(parent: Group, random: Random, origin: Vector3, scale: number): void {
+  const stem = new Mesh(
+    new TubeGeometry(new CatmullRomCurve3([
+      new Vector3(0, 0, 0),
+      new Vector3((random() - 0.5) * 0.08, 0.45, (random() - 0.5) * 0.08),
+      new Vector3((random() - 0.5) * 0.12, 0.95, 0),
+    ]), 6, 0.012, 5, false),
+    new MeshStandardMaterial({ color: '#5d7348', roughness: 1 }),
+  );
+  const blossom = new MeshStandardMaterial({ color: random() > 0.5 ? '#7d68b8' : '#c46b93', roughness: 0.8 });
+  const group = new Group();
+  group.add(stem);
+  for (let i = 0; i < 7; i++) {
+    const floret = new Mesh(new IcosahedronGeometry(0.045, 0), blossom);
+    floret.position.set((random() - 0.5) * 0.08, 0.35 + i * 0.09, (random() - 0.5) * 0.08);
+    group.add(floret);
+  }
+  group.position.copy(origin);
+  group.scale.setScalar(scale);
+  parent.add(group);
+}
+
+function wornPath(): Mesh {
+  const centers = [
+    new Vector3(0.05, 0, 4.35),
+    new Vector3(0.22, 0, 2.4),
+    new Vector3(0.48, 0, 0.55),
+    new Vector3(0.62, 0, -1.35),
+    new Vector3(0.4, 0, -3.35),
+    new Vector3(0.5, 0, -5.6),
+  ];
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+  centers.forEach((center, index) => {
+    const next = centers[Math.min(index + 1, centers.length - 1)];
+    const prev = centers[Math.max(index - 1, 0)];
+    const tangent = next.clone().sub(prev).setY(0);
+    if (tangent.lengthSq() < 1e-6) tangent.set(0, 0, -1);
+    tangent.normalize();
+    const side = new Vector3(-tangent.z, 0, tangent.x);
+    const half = 0.62 - index * 0.04;
+    for (const sign of [-1, 1]) {
+      const point = center.clone().addScaledVector(side, sign * half);
+      positions.push(point.x, -2.165, point.z);
+      uvs.push(sign * 0.5 + 0.5, index / (centers.length - 1));
+    }
+    if (index < centers.length - 1) {
+      const a = index * 2;
+      indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+    }
+  });
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  const mesh = new Mesh(geometry, surfaceMaterial('path'));
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
 export function createPatio(): PatioScene {
   const root = new Group();
 
-  const floorMaterial = surfaceMaterial('tile');
-  const floor = new Mesh(new PlaneGeometry(20, 20), floorMaterial);
+  const bedMaterial = surfaceMaterial('soil');
+  bedMaterial.roughness = 1;
+  const floor = new Mesh(new PlaneGeometry(24, 24), bedMaterial);
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(2, -2.2, 2);
+  floor.position.set(0.4, -2.2, 0.2);
   floor.receiveShadow = true;
   root.add(floor);
+  root.add(wornPath());
 
   const wallMaterial = surfaceMaterial('plaster');
   const trimMaterial = surfaceMaterial('trim');
   const terracottaMaterial = surfaceMaterial('terracotta');
-  const sageForegroundMat = new MeshStandardMaterial({ color: '#6b825d', roughness: 0.88, side: DoubleSide });
+  const sunLeaf = new MeshStandardMaterial({ color: '#7d9a62', roughness: 0.82, side: DoubleSide, emissive: '#314226', emissiveIntensity: 0.12 });
+  const shadeLeaf = new MeshStandardMaterial({ color: '#4e6846', roughness: 0.9, side: DoubleSide });
   const sageSproutMat = new MeshStandardMaterial({ color: '#758b64', roughness: 0.9, side: DoubleSide });
 
-  const backWall = new Mesh(new BoxGeometry(15.4, 5.4, 0.4), wallMaterial);
-  backWall.position.set(3.5, 0.5, -4.0);
+  const house = new Group();
+  const backWall = new Mesh(new BoxGeometry(14, 4.8, 0.42), wallMaterial);
+  backWall.position.set(0.8, 0.15, -6.4);
   backWall.castShadow = true;
   backWall.receiveShadow = true;
-  root.add(backWall);
-
-  const sideWall = new Mesh(new BoxGeometry(0.4, 5.4, 15.4), wallMaterial);
-  sideWall.position.set(-4.0, 0.5, 3.5);
-  sideWall.castShadow = true;
-  sideWall.receiveShadow = true;
-  root.add(sideWall);
-
-  // Subtle water stain on the back plaster wall near the shaded corner
+  house.add(backWall);
+  const arch = new Mesh(new BoxGeometry(1.7, 2.5, 0.2), new MeshStandardMaterial({ color: '#6a4638', roughness: 1 }));
+  arch.position.set(0.55, -0.55, -6.16);
+  house.add(arch);
+  const windowFrame = new Mesh(new BoxGeometry(0.95, 1.15, 0.12), trimMaterial);
+  windowFrame.position.set(2.7, 0.7, -6.16);
+  house.add(windowFrame);
+  const windowGlass = new Mesh(new PlaneGeometry(0.62, 0.82), new MeshStandardMaterial({
+    color: '#f3c98a',
+    emissive: '#e7a15a',
+    emissiveIntensity: 0.45,
+    roughness: 0.35,
+  }));
+  windowGlass.position.set(2.7, 0.7, -5.92);
+  house.add(windowGlass);
+  const mullionV = new Mesh(new BoxGeometry(0.04, 0.82, 0.04), trimMaterial);
+  mullionV.position.set(2.7, 0.7, -5.88);
+  const mullionH = new Mesh(new BoxGeometry(0.62, 0.04, 0.04), trimMaterial);
+  mullionH.position.set(2.7, 0.7, -5.88);
+  house.add(mullionV, mullionH);
+  const coping = new Mesh(new BoxGeometry(14.2, 0.18, 0.62), trimMaterial);
+  coping.position.set(0.8, 2.62, -6.4);
+  coping.castShadow = true;
+  house.add(coping);
+  const plinth = new Mesh(new BoxGeometry(14.1, 0.28, 0.55), trimMaterial);
+  plinth.position.set(0.8, -2.05, -6.3);
+  plinth.receiveShadow = true;
+  house.add(plinth);
   const stainMat = surfaceMaterial('waterStain');
   stainMat.transparent = true;
   stainMat.depthWrite = false;
-  const wallStain = new Mesh(new PlaneGeometry(2.1, 2.2), stainMat);
-  wallStain.position.set(-1.55, -0.95, -3.79);
-  wallStain.receiveShadow = true;
-  root.add(wallStain);
-
-  const backPlinth = new Mesh(new BoxGeometry(15.2, 0.36, 0.48), trimMaterial);
-  backPlinth.position.set(3.5, -2.02, -3.98);
-  backPlinth.receiveShadow = true;
-  root.add(backPlinth);
-
-  const sidePlinth = new Mesh(new BoxGeometry(0.48, 0.36, 15.2), trimMaterial);
-  sidePlinth.position.set(-3.98, -2.02, 3.5);
-  sidePlinth.receiveShadow = true;
-  root.add(sidePlinth);
-
-  const backCoping = new Mesh(new BoxGeometry(15.5, 0.2, 0.56), trimMaterial);
-  backCoping.position.set(3.5, 3.28, -4.0);
-  backCoping.castShadow = true;
-  root.add(backCoping);
-
-  const sideCoping = new Mesh(new BoxGeometry(0.56, 0.2, 15.5), trimMaterial);
-  sideCoping.position.set(-4.0, 3.28, 3.5);
-  sideCoping.castShadow = true;
-  root.add(sideCoping);
+  const wallStain = new Mesh(new PlaneGeometry(1.6, 1.8), stainMat);
+  wallStain.position.set(-1.4, -0.7, -6.16);
+  house.add(wallStain);
+  root.add(house);
 
   const profile = [...POT.outer, ...POT.inner].map(([radius, y]) => new Vector2(radius, y));
-  const pot = new Mesh(new LatheGeometry(profile, 64), terracottaMaterial);
+  const pot = new Mesh(new LatheGeometry(profile, 48), terracottaMaterial);
   pot.castShadow = true;
   pot.receiveShadow = true;
+  pot.position.copy(FLOWER_BED);
   root.add(pot);
 
-  // Repaired companion pot in the shaded left corner
   const repairedPot = createRepairedPot(terracottaMaterial);
-  repairedPot.position.set(-2.55, -2.2, 0.45);
-  repairedPot.scale.setScalar(1.25);
-  repairedPot.rotation.y = 0.65;
+  repairedPot.position.set(WEB_CENTER.x + 0.35, -2.2, WEB_CENTER.z + 0.85);
+  repairedPot.scale.setScalar(1.35);
+  repairedPot.rotation.y = -0.4;
   root.add(repairedPot);
 
-  // Plant sprouting between tiles in the sunlit midground
+  const midPot = createRepairedPot(terracottaMaterial);
+  midPot.position.set(1.35, -2.2, -1.15);
+  midPot.scale.setScalar(0.85);
+  midPot.rotation.y = 1.2;
+  root.add(midPot);
+
   const tileSprout = createTileSprout(sageSproutMat);
-  tileSprout.position.set(2.35, -2.19, 0.15);
-  tileSprout.scale.setScalar(1.35);
+  tileSprout.position.set(0.95, -2.16, 1.55);
   root.add(tileSprout);
 
-  // Broad curved foreground leaf framing the lower-left edge without blocking targets
-  const fgLeafGroup = new Group();
-  fgLeafGroup.position.set(1.15, -0.62, 3.65);
-  fgLeafGroup.rotation.set(0.28, 2.38, -0.22);
-  const fgLeaf = new Mesh(curvedLeafGeometry(1.22, 0.27, 0.36, 0.045), sageForegroundMat);
-  fgLeaf.castShadow = true;
-  fgLeaf.receiveShadow = true;
-  fgLeafGroup.add(fgLeaf);
+  const leftFrame = new Group();
+  leftFrame.position.set(-0.55, 0.85, 4.55);
+  addLeaf(leftFrame, sunLeaf, 1.7, 0.48, 0.42, { x: 0, y: 0, z: 0, yaw: 0.7, pitch: -0.15, roll: 0.45 });
+  addLeaf(leftFrame, shadeLeaf, 1.35, 0.36, 0.3, { x: 0.05, y: -0.15, z: 0.25, yaw: 1.5, pitch: 0.1, roll: -0.2 });
+  root.add(leftFrame);
 
-  const fgLeafSecondary = new Mesh(curvedLeafGeometry(0.92, 0.21, 0.28, 0.03), sageForegroundMat);
-  fgLeafSecondary.rotation.set(0.08, -0.42, 0.14);
-  fgLeafSecondary.castShadow = true;
-  fgLeafGroup.add(fgLeafSecondary);
-  root.add(fgLeafGroup);
+  const rightFrame = new Group();
+  rightFrame.position.set(2.85, 0.55, 4.7);
+  addLeaf(rightFrame, sunLeaf, 1.55, 0.42, 0.36, { x: 0, y: 0, z: 0, yaw: -2.4, pitch: -0.25, roll: -0.35 });
+  addLeaf(rightFrame, shadeLeaf, 1.2, 0.32, 0.24, { x: -0.15, y: 0.1, z: 0.1, yaw: -1.6, pitch: 0.05, roll: 0.2 });
+  root.add(rightFrame);
+
+  const canopy = new Group();
+  const canopyLeaf = new MeshStandardMaterial({ color: '#718653', roughness: 0.88, side: DoubleSide, emissive: '#4b6037', emissiveIntensity: 0.7 });
+  const canopyLight = new MeshStandardMaterial({ color: '#9aad73', roughness: 0.84, side: DoubleSide, emissive: '#647b49', emissiveIntensity: 0.52 });
+  const canopyStem = new MeshStandardMaterial({ color: '#4d5940', roughness: 0.96 });
+  const archSpecs = [
+    { x: -4.4, y: 3.15, z: 4.5, yaw: 1.18, length: 3.3, width: 0.58, roll: 0.08 },
+    { x: 4.0, y: 3.0, z: 4.25, yaw: -1.12, length: 3.1, width: 0.55, roll: -0.1 },
+    { x: -2.2, y: 3.5, z: 4.0, yaw: 1.43, length: 2.45, width: 0.46, roll: 0.12 },
+    { x: 2.05, y: 3.42, z: 4.35, yaw: -1.44, length: 2.35, width: 0.48, roll: -0.08 },
+  ];
+  for (const [index, spec] of archSpecs.entries()) {
+    addLeaf(canopy, index % 2 === 0 ? canopyLeaf : canopyLight, spec.length, spec.width, 0.42, {
+      x: spec.x, y: spec.y, z: spec.z, yaw: spec.yaw, pitch: -0.08, roll: spec.roll,
+    }, false);
+  }
+  for (const [x, side] of [[-4.2, 1], [4.0, -1]] as const) {
+    const branch = new Mesh(new TubeGeometry(new CatmullRomCurve3([
+      new Vector3(x, -1.8, 4.0), new Vector3(x + side * 0.25, 0.3, 4.35),
+      new Vector3(x + side * 0.7, 2.2, 4.8), new Vector3(x + side * 1.1, 3.5, 5.0),
+    ]), 18, 0.075, 7, false), canopyStem);
+    branch.castShadow = true;
+    canopy.add(branch);
+    for (let leaf = 0; leaf < 5; leaf++) {
+      const level = leaf * 0.68 - 0.2;
+      addLeaf(canopy, leaf % 2 === 0 ? canopyLight : canopyLeaf, 1.65 + (leaf % 3) * 0.28, 0.43 + (leaf % 2) * 0.12, 0.3, {
+        x: x + side * (0.14 + leaf * 0.13), y: -0.65 + level, z: 4.1 + leaf * 0.13,
+        yaw: side * (0.8 + (leaf % 3) * 0.32), pitch: -0.62 + (leaf % 2) * 0.15, roll: side * 0.08,
+      }, false);
+    }
+  }
+  root.add(canopy);
+
+  const climbers = new Group();
+  const vineStem = new MeshStandardMaterial({ color: '#4d6845', roughness: 0.96 });
+  for (const [index, x] of [-4.8, -3.0, 0.5, 3.9, 5.15].entries()) {
+    const random = randomStream(`climber-${index}`);
+    const points = Array.from({ length: 7 }, (_, point) => new Vector3(
+      x + Math.sin(point * 1.1 + index) * (0.15 + point * 0.045),
+      -1.8 + point * 0.66,
+      -6.12 + Math.sin(point * 0.8) * 0.045,
+    ));
+    const stem = new Mesh(new TubeGeometry(new CatmullRomCurve3(points), 32, 0.025, 5, false), vineStem);
+    stem.castShadow = true;
+    climbers.add(stem);
+    for (let leaf = 0; leaf < 11; leaf++) {
+      const point = points[1 + Math.floor(leaf * 5 / 10)];
+      addLeaf(climbers, leaf % 3 === 0 ? canopyLight : canopyLeaf, 0.78 + random() * 0.34, 0.27 + random() * 0.09, 0.18, {
+        x: point.x + (leaf % 2 === 0 ? -0.2 : 0.2), y: point.y + (leaf % 2) * 0.16,
+        z: point.z - 0.05, yaw: leaf % 2 === 0 ? -0.7 : 0.7, pitch: -0.18, roll: (random() - 0.5) * 0.3,
+      }, false);
+    }
+  }
+  const wallPlants = new Group();
+  for (const [index, x] of [-4.6, -1.9, 1.7, 4.25].entries()) {
+    const random = randomStream(`wall-plant-${index}`);
+    for (let leaf = 0; leaf < 3; leaf++) {
+      const side = leaf % 2 === 0 ? -1 : 1;
+      addLeaf(wallPlants, leaf % 2 === 0 ? canopyLight : canopyLeaf, 1.35 + random() * 0.38, 0.46 + random() * 0.12, 0.25, {
+        x: x + side * (0.2 + random() * 0.25), y: -0.1 + leaf * 0.62, z: -5.65,
+        yaw: side * (0.58 + random() * 0.55), pitch: -0.5 + random() * 0.23, roll: side * 0.1,
+      }, false);
+    }
+  }
+  root.add(wallPlants);
+  root.add(climbers);
+
+  const collar = new Group();
+  collar.position.set(FLOWER_BED.x, -0.4, FLOWER_BED.z);
+  addLeaf(collar, sunLeaf, 1.35, 0.38, 0.55, { x: 0.15, y: 0, z: 0.35, yaw: 0.4, pitch: -0.9, roll: 0.1 }, true);
+  addLeaf(collar, shadeLeaf, 1.2, 0.32, 0.4, { x: -0.45, y: 0.1, z: 0.1, yaw: 2.2, pitch: -0.7, roll: -0.2 }, true);
+  addLeaf(collar, sunLeaf, 1.05, 0.28, 0.35, { x: 0.35, y: 0.05, z: -0.25, yaw: -1.1, pitch: -0.8, roll: 0.15 }, true);
+  root.add(collar);
+
+  const shrubs = new Group();
+  const shrubRandom = randomStream('shrubs');
+  for (const [x, z] of [[-2.4, -1.6], [1.55, -2.2], [3.1, -0.8]] as const) {
+    for (let leaf = 0; leaf < 4; leaf++) {
+      addLeaf(shrubs, leaf % 2 === 0 ? sunLeaf : shadeLeaf, 0.95, 0.3, 0.42, {
+        x: x + (shrubRandom() - 0.5) * 0.45,
+        y: -1.85 + leaf * 0.08,
+        z: z + (shrubRandom() - 0.5) * 0.35,
+        yaw: shrubRandom() * Math.PI * 2,
+        pitch: -0.55 - shrubRandom() * 0.5,
+      }, false);
+    }
+  }
+  root.add(shrubs);
+
+  const garden = new Group();
+  const bedRandom = randomStream('garden-leaves');
+  const leafGeometry = curvedLeafGeometry(0.7, 0.18, 0.22, 0.03);
+  const bedLeaves = new InstancedMesh(leafGeometry, shadeLeaf, 42);
+  const matrix = new Matrix4();
+  const quaternion = new Quaternion();
+  const scale = new Vector3();
+  const beds = [
+    { x: -2.4, z: -0.4, spread: 1.5 },
+    { x: -0.2, z: -2.2, spread: 1.3 },
+    { x: 2.6, z: -0.6, spread: 1.4 },
+    { x: 1.1, z: 1.8, spread: 0.8 },
+  ];
+  for (let index = 0; index < 42; index++) {
+    const bed = beds[index % beds.length];
+    const yaw = bedRandom() * Math.PI * 2;
+    quaternion.setFromEuler(new Euler(-0.4 - bedRandom() * 0.8, yaw, (bedRandom() - 0.5) * 0.4));
+    const size = 0.85 + bedRandom() * 0.9;
+    scale.setScalar(size);
+    matrix.compose(
+      new Vector3(bed.x + (bedRandom() - 0.5) * bed.spread, -2.05 + bedRandom() * 0.15, bed.z + (bedRandom() - 0.5) * bed.spread),
+      quaternion,
+      scale,
+    );
+    bedLeaves.setMatrixAt(index, matrix);
+  }
+  bedLeaves.receiveShadow = true;
+  garden.add(bedLeaves);
+  for (let index = 0; index < 10; index++) {
+    const side = index < 6 ? -1 : 1;
+    plantSpike(
+      garden,
+      randomStream(`spike-${index}`),
+      new Vector3(FLOWER_BED.x + side * (0.7 + (index % 3) * 0.35), -2.15, FLOWER_BED.z - 0.4 - (index % 4) * 0.45),
+      0.95 + (index % 3) * 0.2,
+    );
+  }
+  const smallFlower = new MeshStandardMaterial({ color: '#e0b03a', roughness: 0.7, side: DoubleSide });
+  const smallDisk = new MeshStandardMaterial({ color: '#3a2918', roughness: 1 });
+  for (const [x, z, spin] of [[-2.15, -1.35, 0.4], [0.15, -2.55, 1.1]] as const) {
+    const bloom = new Group();
+    bloom.position.set(x, -2.15, z);
+    bloom.rotation.y = spin;
+    const head = new Mesh(new IcosahedronGeometry(0.16, 1), smallDisk);
+    head.position.y = 0.95;
+    bloom.add(head);
+    for (let petal = 0; petal < 8; petal++) {
+      const angle = petal / 8 * Math.PI * 2;
+      const ray = new Mesh(new PlaneGeometry(0.16, 0.42), smallFlower);
+      ray.position.set(Math.cos(angle) * 0.28, 0.95, Math.sin(angle) * 0.28);
+      ray.rotation.set(-0.7, -angle, 0);
+      bloom.add(ray);
+    }
+    const stalk = new Mesh(new BoxGeometry(0.03, 0.95, 0.03), sageSproutMat);
+    stalk.position.y = 0.45;
+    bloom.add(stalk);
+    garden.add(bloom);
+  }
+  root.add(garden);
 
   const soilY = POT.rimTop - POT.soilDrop;
   const soilRadius = 1.025;
@@ -339,21 +585,19 @@ export function createPatio(): PatioScene {
   soilGeometry.setIndex(indices);
   soilGeometry.computeVertexNormals();
   const soil = new Mesh(soilGeometry, surfaceMaterial('soil'));
+  soil.position.set(FLOWER_BED.x, 0, FLOWER_BED.z);
   soil.receiveShadow = true;
   root.add(soil);
 
   const random = randomStream('soil-clods');
   const clods = new InstancedMesh(new IcosahedronGeometry(1, 0), new MeshStandardMaterial({ color: '#4a392a', roughness: 1, vertexColors: true }), 90);
-  const matrix = new Matrix4();
-  const quaternion = new Quaternion();
-  const scale = new Vector3();
   for (let index = 0; index < 90; index++) {
     const radius = soilRadius * 0.94 * Math.sqrt(random());
     const angle = Math.PI * 2 * random();
     const size = 0.015 + random() * 0.035;
     quaternion.setFromEuler(new Euler(random() * Math.PI, random() * Math.PI, random() * Math.PI));
     scale.set(size, size * (0.6 + random() * 0.5), size);
-    matrix.compose(new Vector3(Math.cos(angle) * radius, soilY + size * 0.4, Math.sin(angle) * radius), quaternion, scale);
+    matrix.compose(new Vector3(FLOWER_BED.x + Math.cos(angle) * radius, soilY + size * 0.4, FLOWER_BED.z + Math.sin(angle) * radius), quaternion, scale);
     clods.setMatrixAt(index, matrix);
     clods.setColorAt(index, new Color('#4a392a').offsetHSL(0, 0, (random() - 0.5) * 0.18));
   }
@@ -363,8 +607,9 @@ export function createPatio(): PatioScene {
   return {
     root,
     setSway(amount: number) {
-      fgLeafGroup.rotation.z = -0.14 + amount * 0.045;
-      fgLeafGroup.rotation.x = 0.18 + amount * 0.025;
+      leftFrame.rotation.z = amount * 0.04;
+      leftFrame.rotation.x = amount * 0.02;
+      rightFrame.rotation.z = amount * -0.035;
       tileSprout.rotation.z = amount * 0.06;
     },
   };

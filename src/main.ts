@@ -5,13 +5,13 @@ import {
   WebGLRenderer,
 } from 'three';
 import { createFlower, type View } from './flower';
-import { createPatio } from './patio';
+import { createPatio, FLOWER_BED } from './patio';
 import { createSpiderWeb, WEB_CENTER, WEB_SECTORS, type Sector } from './spider-web';
 
 type Pose = { position: Vector3; yaw: number; pitch: number };
 
 const INSPECTION_POSES = {
-  reverse: poseLookingAt(new Vector3(0.75, -0.3, 0.95), new Vector3(0, 1.4, 0)),
+  reverse: poseLookingAt(new Vector3(0.75, -0.3, 0.95).add(FLOWER_BED), new Vector3(0, 1.4, 0).add(FLOWER_BED)),
 } as const satisfies Record<string, Pose>;
 
 type InspectionId = keyof typeof INSPECTION_POSES;
@@ -27,9 +27,9 @@ type LightRig = {
 };
 const LIGHTING = {
   afternoon: {
-    exposure: 1.04,
-    sky: { color: 0xfff0dc, ground: 0x6d617a, intensity: 1.05 },
-    sun: { color: 0xffe0b2, intensity: 4.1, from: [7.2, 5.2, 3.6], shadowRadius: 3.5 },
+    exposure: 1.1,
+    sky: { color: 0xffe4c4, ground: 0x65556f, intensity: 1.18 },
+    sun: { color: 0xffbe7a, intensity: 4.5, from: [-5.4, 6.4, 7.8], shadowRadius: 3.2 },
   },
   shade: {
     exposure: 1.06,
@@ -101,17 +101,15 @@ function easeInOutSmoother(t: number): number {
   return t * t * t * (t * (t * 6 - 15) + 10);
 }
 
-const PATIO_POS = new Vector3(4.1, 1.18, 4.95);
-const PATIO_POSE: Pose = {
-  position: PATIO_POS,
-  ...yawPitchFromLookAt(PATIO_POS, new Vector3(0, 1.0, 0)),
-};
+const PATIO_LOOK = new Vector3(0.18, 1.03, -0.25);
+function patioPoseForAspect(aspect: number): Pose {
+  const position = aspect < 0.8 ? new Vector3(0.3, 1.08, 13) : new Vector3(0.3, 1.08, 9.2);
+  return poseLookingAt(position, PATIO_LOOK);
+}
+let PATIO_POSE = patioPoseForAspect(window.innerWidth / window.innerHeight);
 
-const FLOWER_POS = new Vector3(1.55, 3.35, 1.95);
-const FLOWER_POSE: Pose = {
-  position: FLOWER_POS,
-  ...yawPitchFromLookAt(FLOWER_POS, new Vector3(0, 1.5, 0)),
-};
+const FLOWER_POS = FLOWER_BED.clone().add(new Vector3(1.35, 2.55, 1.65));
+const FLOWER_POSE: Pose = poseLookingAt(FLOWER_POS, FLOWER_BED.clone().add(new Vector3(0, 1.55, 0)));
 
 const WEB_POSE = poseLookingAt(WEB_CENTER.clone().add(new Vector3(0, 2.85, 1.72)), WEB_CENTER);
 
@@ -122,9 +120,19 @@ if (!(viewport instanceof HTMLElement) || !(errorMessage instanceof HTMLElement)
 }
 
 const approachButton = document.querySelector<HTMLButtonElement>('#approach');
+const approachWebButton = document.querySelector<HTMLButtonElement>('#approach-web');
 const returnButton = document.querySelector<HTMLButtonElement>('#return-patio');
 const travelStatus = document.querySelector<HTMLElement>('#travel-status');
 const viewStatus = document.querySelector<HTMLElement>('#view-status');
+const lessonDrawer = document.querySelector<HTMLDialogElement>('#lesson-drawer');
+const lessonToggle = document.querySelector<HTMLButtonElement>('#lesson-toggle');
+const lessonClose = document.querySelector<HTMLButtonElement>('#lesson-close');
+
+lessonToggle?.addEventListener('click', () => lessonDrawer?.showModal());
+lessonClose?.addEventListener('click', () => lessonDrawer?.close());
+lessonDrawer?.addEventListener('click', (event) => {
+  if (event.target === lessonDrawer) lessonDrawer.close();
+});
 
 function setLookButtonsDisabled(disabled: boolean): void {
   document.querySelectorAll<HTMLButtonElement>('#look-left, #look-right, #look-up, #look-down').forEach((button) => {
@@ -165,12 +173,12 @@ function installLighting(scene: Scene, renderer: WebGLRenderer, rig: LightRig): 
   sunlight.position.set(...rig.sun.from);
   sunlight.castShadow = true;
   sunlight.shadow.mapSize.set(2048, 2048);
-  sunlight.shadow.camera.left = -7;
-  sunlight.shadow.camera.right = 7;
-  sunlight.shadow.camera.top = 7;
-  sunlight.shadow.camera.bottom = -7;
-  sunlight.shadow.camera.near = 1;
-  sunlight.shadow.camera.far = 26;
+  sunlight.shadow.camera.left = -9;
+  sunlight.shadow.camera.right = 9;
+  sunlight.shadow.camera.top = 9;
+  sunlight.shadow.camera.bottom = -9;
+  sunlight.shadow.camera.near = 0.5;
+  sunlight.shadow.camera.far = 32;
   sunlight.shadow.normalBias = 0.03;
   sunlight.shadow.bias = -0.0001;
   sunlight.shadow.radius = rig.sun.shadowRadius;
@@ -187,7 +195,7 @@ function mount(container: HTMLElement): void {
   const canvas = renderer.domElement;
   canvas.tabIndex = 0;
   canvas.setAttribute('role', 'img');
-  canvas.setAttribute('aria-label', 'Patio con flor y red horizontal esquemáticas');
+  canvas.setAttribute('aria-label', 'Jardín de tarde con una flor y una red horizontal esquemáticas');
   container.append(canvas);
 
   const scene = new Scene();
@@ -201,7 +209,9 @@ function mount(container: HTMLElement): void {
   const patio = createPatio();
   scene.add(patio.root);
   const flower = createFlower();
-  flower.setView('uv');
+  flower.root.position.copy(FLOWER_BED);
+  flower.setView('human');
+  flower.setBee(0.72);
   scene.add(flower.root);
   const web = createSpiderWeb();
   scene.add(web.root);
@@ -240,7 +250,7 @@ function mount(container: HTMLElement): void {
   function syncUiState(): void {
     document.body.dataset.camera = cameraState.kind;
     const atWeb = cameraState.kind === 'web';
-    canvas.setAttribute('aria-label', atWeb ? 'Red horizontal con araña de ocho patas y cuatro sectores numerados. Usa los botones de sector para tocar o responder.' : 'Patio con flor y red horizontal esquemáticas. Usa los botones para acercarte.');
+    canvas.setAttribute('aria-label', atWeb ? 'Red horizontal con araña de ocho patas y cuatro sectores numerados. Usa los botones de sector para tocar o responder.' : 'Jardín de tarde con una flor y una red horizontal esquemáticas. Usa los botones para acercarte.');
     if (webControls) webControls.hidden = !atWeb;
     if (beeSelector) beeSelector.hidden = atWeb;
     const beeLesson = document.querySelector<HTMLElement>('#bee-lesson');
@@ -248,10 +258,12 @@ function mount(container: HTMLElement): void {
     if (beeLesson) beeLesson.hidden = atWeb;
     if (spiderLesson) spiderLesson.hidden = !atWeb;
     const specimenHeading = document.querySelector('#specimen-title');
-    if (specimenHeading) specimenHeading.textContent = atWeb ? '02 / RED · VIBRACIONES' : '01 / PATIO · EXPLORAR';
+    if (specimenHeading) specimenHeading.textContent = atWeb ? '02 / RED · VIBRACIONES' : cameraState.kind === 'flower' ? '01 / FLOR · CONTRASTE' : '01 / JARDÍN · EXPLORAR';
     const specimenLabel = document.querySelector('#specimen-label');
     if (specimenLabel) specimenLabel.textContent = atWeb ? 'Uloborus diversus' : 'Rudbeckia hirta';
     if (webApproach) webApproach.disabled = cameraState.kind !== 'patio';
+    if (approachButton) approachButton.setAttribute('aria-pressed', String(cameraState.kind === 'patio' || cameraState.kind === 'approaching' && cameraState.destination === 'flower' || cameraState.kind === 'flower'));
+    if (approachWebButton) approachWebButton.setAttribute('aria-pressed', String(cameraState.kind === 'web' || cameraState.kind === 'approaching' && cameraState.destination === 'web'));
     document.querySelectorAll<HTMLInputElement>('input[name="view"]').forEach(input => input.disabled = false);
     document.querySelectorAll<HTMLButtonElement | HTMLInputElement>('#web-controls button, #web-controls input').forEach(input => input.disabled = !atWeb);
     if (webStatus) webStatus.textContent = web.status;
@@ -266,7 +278,7 @@ function mount(container: HTMLElement): void {
         if (returnButton) returnButton.disabled = true;
         setLookButtonsDisabled(false);
         if (travelStatus) {
-          travelStatus.innerHTML = 'Arrastra para mirar alrededor <span>·</span> Toca la flor o la red para acercarte';
+          travelStatus.innerHTML = 'Arrastra para mirar el jardín <span>·</span> Toca la flor o la red para acercarte';
         }
         break;
       case 'approaching':
@@ -293,7 +305,7 @@ function mount(container: HTMLElement): void {
         if (approachButton) approachButton.disabled = true;
         if (returnButton) returnButton.disabled = true;
         setLookButtonsDisabled(true);
-        if (travelStatus) travelStatus.textContent = 'Volviendo al patio…';
+        if (travelStatus) travelStatus.textContent = 'Volviendo al jardín…';
         break;
       case 'inspection':
         document.querySelectorAll<HTMLButtonElement>('.camera-controls button').forEach(button => button.disabled = true);
@@ -332,16 +344,25 @@ function mount(container: HTMLElement): void {
     const reduced = prefersReducedMotion();
     const webActive = web.update(now, reduced);
     let swayActive = false;
+    let flutter = 0;
     if (swayStartedAt !== null) {
       const swayElapsed = Math.max(0, now - swayStartedAt);
       if (reduced || swayElapsed >= SWAY_DURATION_MS) {
         patio.setSway(0);
+        flower.setBee(1, 0);
         swayStartedAt = null;
       } else {
         const st = swayElapsed / SWAY_DURATION_MS;
-        patio.setSway(Math.sin(st * Math.PI * 2.5) * (1 - st) * (1 - st));
+        flutter = Math.sin(st * Math.PI * 2.5) * (1 - st) * (1 - st);
+        patio.setSway(flutter);
         swayActive = true;
       }
+    }
+    if (cameraState.kind === 'approaching' && cameraState.destination === 'flower') {
+      const flight = Math.min(1, Math.max(0, now - cameraState.startTime) / APPROACH_DURATION_MS);
+      flower.setBee(reduced ? 1 : flight, 0);
+    } else if (flutter !== 0) {
+      flower.setBee(1, Math.abs(flutter));
     }
     if (cameraState.kind !== 'approaching' && cameraState.kind !== 'returning') {
       render();
@@ -378,6 +399,7 @@ function mount(container: HTMLElement): void {
     if (prefersReducedMotion()) {
       const target = destination === 'web' ? WEB_POSE : FLOWER_POSE;
       applyPose(target.position, target.yaw, target.pitch);
+      if (destination === 'flower') flower.setBee(1);
       cameraState = { kind: destination };
       syncUiState();
       render();
@@ -523,7 +545,10 @@ function mount(container: HTMLElement): void {
     const { width, height } = container.getBoundingClientRect();
     if (width <= 0 || height <= 0) return;
     camera.aspect = width / height;
+    camera.fov = camera.aspect < 0.8 ? 58 : 48;
     camera.updateProjectionMatrix();
+    PATIO_POSE = patioPoseForAspect(camera.aspect);
+    if (cameraState.kind === 'patio') applyPose(PATIO_POSE.position, PATIO_POSE.yaw, PATIO_POSE.pitch);
     renderer.setSize(width, height);
     render();
   });

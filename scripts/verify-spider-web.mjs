@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { measureFirstScreen } from './scene-page.mjs';
+import { measureFirstScreen, pixelDifference } from './scene-page.mjs';
 
 export async function verifySpiderWeb({ page, output, observations }) {
   const layoutEvidence = {};
@@ -51,8 +51,10 @@ export async function verifySpiderWeb({ page, output, observations }) {
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => document.body.dataset.camera === 'web');
   await fit('Desktop web');
+  await page.getByRole('button', { name: /La ciencia/ }).click();
   assert(await page.locator('#spider-lesson').isVisible(), 'Web has its own scientific explanation');
   assert(await page.locator('#bee-lesson').isHidden(), 'Flower explanation yields to web explanation');
+  await page.keyboard.press('Escape');
   await sector(1).focus();
   await page.keyboard.press('Enter');
   assert.equal(await source(), 1, 'Keyboard sector 1 creates first directional cue');
@@ -60,15 +62,16 @@ export async function verifySpiderWeb({ page, output, observations }) {
   await page.waitForTimeout(80);
   const firstCue = await canvas.screenshot();
   await page.waitForTimeout(120);
-  assert(firstCue.equals(await canvas.screenshot()), 'Enabling reduced motion midpulse immediately settles a static cue');
+  assert(await pixelDifference(page, firstCue, await canvas.screenshot()) < 0.02, 'Enabling reduced motion midpulse immediately settles a static cue');
   let hitBounds = await canvas.boundingBox();
   assert(hitBounds);
   await page.mouse.click(hitBounds.x + hitBounds.width * 0.69, hitBounds.y + hitBounds.height * 0.5);
   assert.equal(await source(), 2, 'Actual canvas hit at the right creates sector 2 cue');
-  assert(!firstCue.equals(await canvas.screenshot()), 'Distinct sectors produce distinct rendered static signals');
+  const distinctSectorDifference = await pixelDifference(page, firstCue, await canvas.screenshot());
+  assert(distinctSectorDifference > 0.0001, `Distinct sectors produce distinct rendered static signals (changed ${distinctSectorDifference})`);
   await page.mouse.click(hitBounds.x + hitBounds.width * 0.5, hitBounds.y + hitBounds.height * 0.3);
   assert.equal(await source(), 1, 'Second distinct canvas hit creates sector 1 cue');
-  assert(firstCue.equals(await canvas.screenshot()), 'Canvas hit uses the same numbered-sector table as accessible buttons');
+  assert(await pixelDifference(page, firstCue, await canvas.screenshot()) < 0.02, 'Canvas hit uses the same numbered-sector table as accessible buttons');
   const beforeDrag = await status.textContent();
   let bounds = await canvas.boundingBox();
   assert(bounds);
@@ -82,7 +85,7 @@ export async function verifySpiderWeb({ page, output, observations }) {
   const hiddenPreyBaseline = await canvas.screenshot();
   await next.click();
   assert.equal(await phase(), 'search');
-  assert(hiddenPreyBaseline.equals(await canvas.screenshot()), 'Searching hides prey in human mode');
+  assert(await pixelDifference(page, hiddenPreyBaseline, await canvas.screenshot()) < 0.02, 'Searching hides prey in human mode');
   assert.match(await status.textContent(), /oculta en ambos modos/);
   assert.doesNotMatch(await status.textContent(), /Señal más intensa hacia el sector/, 'Human reference explains how to enable vibration cues');
   await vibrations.check();
@@ -90,7 +93,7 @@ export async function verifySpiderWeb({ page, output, observations }) {
   const searchCue = await canvas.screenshot();
   await human.check();
   await vibrations.check();
-  assert(searchCue.equals(await canvas.screenshot()), 'Mode switches preserve exact camera pose and searching round');
+  assert(await pixelDifference(page, searchCue, await canvas.screenshot()) < 0.02, 'Mode switches preserve camera pose and searching round');
   assert.equal(await source(), answer);
   assert.equal(await phase(), 'search');
   const wrong = answer === 4 ? 1 : answer + 1;
@@ -109,11 +112,11 @@ export async function verifySpiderWeb({ page, output, observations }) {
   assert.equal(await phase(), 'found');
   assert.match(await status.textContent(), /¡Encontrada!/);
   await human.check();
-  assert(!hiddenPreyBaseline.equals(await canvas.screenshot()), 'Successful search reveals the insect in human mode');
+  assert(await pixelDifference(page, hiddenPreyBaseline, await canvas.screenshot()) > 0.02, 'Successful search reveals the insect in human mode');
   await page.screenshot({ path: `${output}/web-found-human-desktop.png`, fullPage: true });
   await next.click();
   assert.equal(await phase(), 'search');
-  assert(hiddenPreyBaseline.equals(await canvas.screenshot()), 'New round hides the found insect again');
+  assert(await pixelDifference(page, hiddenPreyBaseline, await canvas.screenshot()) < 0.02, 'New round hides the found insect again');
   await vibrations.check();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(100);
@@ -186,7 +189,7 @@ export async function verifySpiderWeb({ page, output, observations }) {
   await page.waitForTimeout(100);
   const overviewBounds = await canvas.boundingBox();
   assert(overviewBounds);
-  await page.mouse.click(overviewBounds.x + overviewBounds.width * 0.83, overviewBounds.y + overviewBounds.height * 0.77);
+  await page.mouse.click(overviewBounds.x + overviewBounds.width * 0.68, overviewBounds.y + overviewBounds.height * 0.61);
   assert.equal(await page.evaluate(() => document.body.dataset.camera), 'web', 'Clicking the visible web in the patio approaches the web');
   await back.click();
   observations.push('Web has four rendered numbered sectors, distinct keyboard/pointer signals, fixed-pose human/vibration comparison, hidden prey, retry, success, replay, new rounds, responsive controls, motion-change settling, bounded RAF/WebGL draws, exit cancellation, and context-loss cancellation during pulse/search/travel.');

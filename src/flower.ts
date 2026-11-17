@@ -1,5 +1,5 @@
 import {
-  BufferGeometry, CatmullRomCurve3, Color, ConeGeometry, DataTexture, Float32BufferAttribute,
+  BufferGeometry, CatmullRomCurve3, Color, DodecahedronGeometry, DataTexture, DoubleSide, Float32BufferAttribute,
   FrontSide, Group, InstancedMesh, LatheGeometry, Matrix4, Mesh,
   MeshStandardMaterial, Quaternion, SphereGeometry, TubeGeometry, Vector2, Vector3,
 } from 'three';
@@ -109,12 +109,12 @@ function bladeMesh(laminae: readonly Lamina[], grid: BladeGrid, materials: Blade
 function raySpecs(random: Random): RaySpec[] {
   const spread = (amount: number) => (random() * 2 - 1) * amount;
   return Array.from({ length: RAY_COUNT }, (_, index) => ({
-    azimuth: index / RAY_COUNT * Math.PI * 2 + spread(0.035),
-    length: 1.55 * (1 + spread(0.06)),
-    halfWidth: 0.245 * (1 + spread(0.06)),
-    droop: 0.28 + spread(0.07),
-    roll: spread(0.05),
-    lift: index % 2 * 0.014,
+    azimuth: index / RAY_COUNT * Math.PI * 2 + spread(0.04),
+    length: 1.72 * (1 + spread(0.07)),
+    halfWidth: 0.29 * (1 + spread(0.08)),
+    droop: 0.16 + spread(0.05),
+    roll: spread(0.07),
+    lift: (index % 2) * 0.02,
   }));
 }
 
@@ -180,18 +180,17 @@ function createRaySkin(): RaySkin {
 
 function createDisk(): Group {
   const root = new Group();
-  const dome = new Mesh(new SphereGeometry(0.47, 40, 24), new MeshStandardMaterial({
-    color: '#4a3524',
-    emissive: '#24180f',
-    emissiveIntensity: 0.35,
+  const dome = new Mesh(new SphereGeometry(0.5, 40, 24), new MeshStandardMaterial({
+    color: '#2a1c12',
+    emissive: '#1a100c',
+    emissiveIntensity: 0.28,
     roughness: 1,
   }));
   dome.position.y = 1.54;
   dome.scale.y = 0.64;
   dome.castShadow = true;
   root.add(dome);
-  const geometry = new ConeGeometry(0.02, 0.07, 6, 1, true);
-  geometry.translate(0, 0.035, 0);
+  const geometry = new DodecahedronGeometry(0.024, 0);
   const florets = new InstancedMesh(geometry, new MeshStandardMaterial({
     emissive: '#24180f',
     emissiveIntensity: 0.35,
@@ -210,11 +209,11 @@ function createDisk(): Group {
     const position = new Vector3(Math.cos(angle) * radius, 1.54 + 0.3 * Math.sqrt(1 - radius * radius / 0.2209), Math.sin(angle) * radius);
     const outward = new Vector3(position.x, 0.42, position.z).normalize();
     quaternion.setFromUnitVectors(up, outward);
-    const size = 0.6 + 0.65 * smoothstep(0.15, 0.9, t);
+    const size = 0.72 + 0.42 * smoothstep(0.15, 0.9, t);
     scale.setScalar(size);
     matrix.compose(position, quaternion, scale);
     florets.setMatrixAt(index, matrix);
-    const color = new Color(t < 0.5 ? '#5b412c' : '#9b7739').offsetHSL(0, 0, (random() - 0.5) * 0.06);
+    const color = new Color(t < 0.55 ? '#3a2718' : '#8d6a32').offsetHSL(0, 0, (random() - 0.5) * 0.06);
     florets.setColorAt(index, color);
   }
   florets.castShadow = true;
@@ -241,33 +240,99 @@ function leafLamina(at: number, azimuth: number, length: number, halfWidth: numb
   };
 }
 
-export function createFlower(): { readonly root: Group; setView(view: View): void } {
+function createBee(): { readonly root: Group; readonly wings: readonly Mesh[] } {
   const root = new Group();
+  const stripe = new MeshStandardMaterial({ color: '#e2b12a', roughness: 0.62 });
+  const dark = new MeshStandardMaterial({ color: '#2b2418', roughness: 0.7 });
+  const abdomen = new Mesh(new SphereGeometry(0.085, 14, 10), stripe);
+  abdomen.scale.set(0.72, 0.68, 1.45);
+  abdomen.castShadow = true;
+  root.add(abdomen);
+  for (const z of [-0.02, 0.035]) {
+    const band = new Mesh(new SphereGeometry(0.062, 10, 8), dark);
+    band.scale.set(0.78, 0.55, 0.28);
+    band.position.z = z;
+    root.add(band);
+  }
+  const thorax = new Mesh(new SphereGeometry(0.055, 12, 8), dark);
+  thorax.position.set(0, 0.01, -0.1);
+  thorax.castShadow = true;
+  root.add(thorax);
+  const head = new Mesh(new SphereGeometry(0.038, 10, 8), dark);
+  head.position.set(0, 0.012, -0.16);
+  root.add(head);
+  const wingMaterial = new MeshStandardMaterial({
+    color: '#f7f4ea',
+    transparent: true,
+    opacity: 0.55,
+    roughness: 0.35,
+    side: DoubleSide,
+    depthWrite: false,
+  });
+  const wings = [-1, 1].map((side) => {
+    const wing = new Mesh(new SphereGeometry(0.09, 10, 6), wingMaterial);
+    wing.scale.set(1.15, 0.08, 1.7);
+    wing.position.set(side * 0.07, 0.03, -0.02);
+    root.add(wing);
+    return wing;
+  });
+  return { root, wings };
+}
+
+export function createFlower(): { readonly root: Group; setView(view: View): void; setBee(progress: number, flutter?: number): void } {
+  const root = new Group();
+  const head = new Group();
+  head.position.y = 1.5;
+  head.rotation.x = 0.7;
   const skin = createRaySkin();
   const rayMaterials: BladeMaterials = {
-    adaxial: new MeshStandardMaterial({ map: skin.adaxial.human, bumpMap: skin.relief, bumpScale: 0.06, roughness: 0.78, side: FrontSide }),
+    adaxial: new MeshStandardMaterial({ map: skin.adaxial.human, bumpMap: skin.relief, bumpScale: 0.06, roughness: 0.72, side: FrontSide }),
     abaxial: new MeshStandardMaterial({ color: '#dba82c', bumpMap: skin.relief, bumpScale: -0.04, roughness: 0.9, side: FrontSide }),
   };
-  root.add(bladeMesh(raySpecs(randomStream('rays')).map(rayLamina), { rows: 32, columns: 12 }, rayMaterials));
-  const green = new MeshStandardMaterial({ color: '#617648', roughness: 1, side: FrontSide });
+  const petals = bladeMesh(raySpecs(randomStream('rays')).map(rayLamina), { rows: 32, columns: 12 }, rayMaterials);
+  petals.position.y = -1.5;
+  head.add(petals);
+  const upperLeaf = new MeshStandardMaterial({ color: '#5c7544', roughness: 0.86, side: FrontSide });
+  const lowerLeaf = new MeshStandardMaterial({ color: '#8eae6e', roughness: 0.9, side: FrontSide });
+  const leafMaterials: BladeMaterials = { adaxial: upperLeaf, abaxial: lowerLeaf };
   root.add(bladeMesh([
-    leafLamina(0.42, 2.6, 0.95, 0.2, 0.3),
-    leafLamina(0.6, 5.3, 0.75, 0.16, 0.22),
-  ], { rows: 24, columns: 8 }, { adaxial: green, abaxial: green }));
-  const stem = new Mesh(new TubeGeometry(STEM_PATH, 24, STEM_RADIUS, 9, false), green);
+    leafLamina(0.28, 2.2, 1.15, 0.26, 0.34),
+    leafLamina(0.46, 4.4, 0.95, 0.2, 0.26),
+    leafLamina(0.62, 0.4, 0.72, 0.15, 0.18),
+  ], { rows: 24, columns: 8 }, leafMaterials));
+  const stem = new Mesh(new TubeGeometry(STEM_PATH, 24, STEM_RADIUS, 9, false), upperLeaf);
   stem.castShadow = true;
-  root.add(stem, createDisk());
+  root.add(stem);
+  const disk = createDisk();
+  disk.position.y = -1.5;
+  head.add(disk);
   const receptacle = new Mesh(new LatheGeometry([
     new Vector2(STEM_RADIUS, 1.3),
     new Vector2(0.28, 1.38),
-    new Vector2(0.4, 1.47),
-  ], 48), green);
+    new Vector2(0.42, 1.47),
+  ], 48), upperLeaf);
+  receptacle.position.y = -1.5;
   receptacle.castShadow = true;
-  root.add(receptacle);
+  head.add(receptacle);
+  root.add(head);
+  const bee = createBee();
+  bee.root.scale.setScalar(0.7);
+  root.add(bee.root);
+  const hover = new Vector3(0.58, 1.86, 0.42);
+  const approach = new Vector3(1.85, 2.25, 1.55);
   return {
     root,
     setView(view) {
       rayMaterials.adaxial.map = skin.adaxial[view];
+    },
+    setBee(progress, flutter = 0) {
+      const t = Math.max(0, Math.min(1, progress));
+      bee.root.position.lerpVectors(approach, hover, t);
+      bee.root.rotation.y = (1 - t) * -0.6;
+      bee.root.rotation.z = (1 - t) * 0.18;
+      const flap = t < 1 ? Math.sin(t * Math.PI * 16) * 0.75 : 0.4 + flutter * 0.55;
+      bee.wings[0].rotation.z = flap;
+      bee.wings[1].rotation.z = -flap;
     },
   };
 }
