@@ -36,15 +36,15 @@ export function measureFirstScreen(page) {
     const viewport = document.querySelector('#viewport');
     const selector = document.querySelector('.view-selector');
     const sceneBar = document.querySelector('.viewport-footer');
-    const targets = [...document.querySelectorAll('.view-selector label, .camera-controls button')]
-      .map((element) => element.getBoundingClientRect());
+    const targets = [...document.querySelectorAll('.view-selector label, .camera-controls button, #web-controls button')]
+      .map((element) => element.getBoundingClientRect()).filter(rect => rect.width > 0 && rect.height > 0);
     const viewportRect = viewport?.getBoundingClientRect();
     const samples = [];
     if (viewportRect) {
-      for (let row = 1; row <= 5; row++) {
-        for (let column = 1; column <= 5; column++) {
-          const x = viewportRect.left + viewportRect.width * column / 6;
-          const y = viewportRect.top + viewportRect.height * row / 6;
+      for (let row = 0; row <= 6; row++) {
+        for (let column = 0; column <= 6; column++) {
+          const x = viewportRect.left + viewportRect.width * (0.02 + 0.96 * column / 6);
+          const y = viewportRect.top + viewportRect.height * (0.02 + 0.96 * row / 6);
           const top = document.elementsFromPoint(x, y)[0];
           samples.push(Boolean(top && top !== viewport && !viewport?.contains(top)));
         }

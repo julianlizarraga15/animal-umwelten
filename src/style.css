@@ -120,3 +120,29 @@ h2 { font-family: Georgia, 'Times New Roman', serif; font-size: 34px; font-weigh
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+
+#web-controls { grid-area: selector; display: grid; gap: 6px; }
+#web-controls .view-selector { min-height: 38px; }
+#web-controls .view-selector label { padding: 6px 8px; }
+#web-status { min-height: 44px; line-height: 1.35; }
+.web-actions { display: flex; gap: 5px; }
+.web-actions button { flex: 1; min-height: 36px; border: 1px solid #ccd3c2; border-radius: 5px; background: #e5eadf; color: #263c30; font-size: 11px; cursor: pointer; }
+.web-actions button:disabled { opacity: .35; }
+body[data-camera="web"] { --scene-chrome: 370px; }
+@container specimen (max-width: 780px) {
+ .viewport-footer .camera-controls { grid-template-columns: repeat(6, 1fr); }
+ .camera-controls .action-btn { grid-column: span 2; padding: 0 6px; }
+ .camera-controls button:not(.action-btn) { width: 100%; }
+}
+@media (max-width: 740px) {
+ :root { --scene-chrome: 420px; }
+ body[data-camera="web"] { --scene-chrome: 560px; --scene-min: 250px; }
+ #web-status { min-height: 36px; font-size: 10px; }
+ .camera-controls .action-btn { font-size: 10px; }
+}
+
+#web-controls .view-selector { grid-area: auto; min-width: 0; }
+#web-controls { min-width: 0; }
+
+.specimen-heading { height: auto; min-height: 34px; gap: 8px; align-items: baseline; }
+@media (max-width: 740px) { .specimen-heading { min-height: 31px; } }

@@ -2,6 +2,8 @@
 
 ## Next experiment
 
+- Evaluate whether visitors understand the spider's directional vibration cue
+  and the difference between a visible signal encoding and animal vision.
 - Evaluate whether the patio context improves understanding of the floral contrast.
 - Validate the interaction on a physical mobile device and another browser.
 - Measure approach frame timing with hardware WebGL. SwiftShader captures do not
@@ -10,7 +12,7 @@
 
 ## Later candidates
 
-- Spider vibration sensing, bat echolocation, and dog olfaction.
+- Bat echolocation and dog olfaction.
 - A dog or mouse in the same patio after researching a specific supported signal.
 - Additional environments only after evaluating the patio comparison.
 

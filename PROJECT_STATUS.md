@@ -1,101 +1,72 @@
 # Project status
 
-Handoff updated: 2026-11-16
+Handoff updated: 2026-11-17
 
-## Goal and scope
+## Goal and current state
 
-Build Umwelt Explorer, an exploratory experience about animal perception inspired
-by Ed Yong's *An Immense World*. The active experience places a naturalistic
-schematic *Rudbeckia hirta* flower in a small patio corner explored from a
-first-person viewpoint, starting with a bee-relevant UV contrast signal and a
-human reference for comparison, without claiming subjective animal vision.
+Umwelt Explorer lets visitors explore a shared patio and compare two bounded
+animal-relevant signals. A schematic *Rudbeckia hirta* flower carries a bee UV
+contrast encoding. A horizontal spider web offers a vibration-direction
+interaction inspired by research on *Uloborus diversus*. The interface is in
+Spanish. Neither representation claims literal animal subjective experience.
 
-## Completed
+The spider increment is complete. This handoff accompanies the commit for
+`origin/main`, requested by the user after validation. No PR or public deployment
+was performed. The previous flower and visual-quality upgrades remain intact.
 
-- Scientific brief in `docs/research/bee-vision.md` separates primary evidence,
-  inference, display encoding, and representation limits.
-- Stack comparison selected Three.js, TypeScript, Vite, and npm in `DECISIONS.md`.
-- Implemented the first-person patio corner (`src/patio.ts`, `src/flower.ts`,
-  `src/main.ts`) with stationary look-around, raycasted flower approach, cancel
-  and return controls, `prefers-reduced-motion` support, and WebGL failure and
-  context-loss recovery.
-- Completed and merged the visual-quality upgrade
-  (`docs/plans/20261116-visual-quality.md`):
-  - Added deterministic field-generated `DataTexture` utilities (`src/procedural.ts`)
-    with zero external asset downloads (`0 B`).
-  - Rebuilt `src/flower.ts` with merged two-faced curved petal laminae, smooth
-    per-texel adaxial UV basal guide and venation, view-independent abaxial
-    backs, receptacle cup, 610 instanced disk florets, and two attached leaves.
-  - Rebuilt `src/patio.ts` with an open hollow `LatheGeometry` pot, darkened
-    inner terracotta wall, UV-mapped mounded soil, 90 instanced soil clods, and
-    procedural tile, plaster, and trim maps.
-  - Selected `directional` daylight (`DEFAULT_LIGHTING`) over `soft` after
-    browser comparison captures (`test-results/patio/visual-quality/`).
-  - Compacted `index.html` and `src/style.css` so `#viewport` and the complete
-    scene control bar fit inside the first screen at `1440x1000` and `390x844`.
-  - Extended `scripts/scene-page.mjs`, `scripts/capture-visual-quality.mjs`, and
-    `scripts/verify-browser.mjs` with first-screen, occluder, reverse-face,
-    `renderer.info`, and zero-external-asset assertions.
+## Completed increment
 
-## Current stopping point
-
-`feat/visual-quality` is merged into `main` and pushed to `origin/main`. The
-local Vite development server on port `5173` was stopped after the user verified
-live operation in the browser. No public deployment has been configured.
-
-## Decisions and limits
-
-- *Apis mellifera* is the sensory reference and *Rudbeckia hirta* is the
-  schematic floral pattern; their pairing is illustrative, not a behavioral test.
-- Pattern extent, naturalistic geometry, and visible false colors (violet bases,
-  yellow tips) are explanatory encodings, not bee subjective colors or measured
-  reflectance.
-- Adaxial petal material alone receives `View`; abaxial backs and patio walls,
-  floor, pot, and soil carry no UV maps.
-- Directional daylight is the default rig (`DECISIONS.md`).
-- Camera poses, FOV, look limits, and travel durations remain interaction
-  choices, not measured bee optics or body scale.
-
-## Open questions and blockers
-
-- External visitor comprehension of the UV contrast lesson remains untested.
-- Quantitative frame-time profiling on hardware WebGL and physical phones
-  remains unmeasured (automated checks use SwiftShader software WebGL).
-- A second animal in the shared patio (such as dog olfaction/vision or mouse
-  perception) has no primary-source research brief yet.
+- Reviewed plan: `docs/plans/20261117-spider-web.md`. Scientific evidence and
+  display limits: `docs/research/spider-vibrations.md`.
+- `src/spider-web.ts` owns web/spider/insect geometry, four numbered sectors,
+  and explicit exploration/search/found and pulse/static states.
+- `src/main.ts` retains one renderer and RAF scheduler, with flower and web
+  destinations, return/cancel, contextual controls and lessons, and scene hits.
+- Visitors touch different web points or use numbered buttons, summon a hidden
+  fly, follow a directional cue, retry, replay, and start another round.
+  Human/vibration switching preserves the camera and round. Finding the fly
+  reveals it; leaving or losing WebGL context resets the activity.
+- Reduced motion shows static cues. Midpulse preference changes settle them.
+  The app stops scheduling frames after travel and bounded pulse playback.
+- Independent plan and code reviews resolved a mobile heading overlap and a
+  context-loss verification timing gap. One owner wrote in an isolated worktree;
+  the reviewed implementation was copied byte-for-byte into this checkout.
 
 ## Validation
 
-On 2026-11-16 (Windows 10/11, Node v24.14.0, npm 11.9.0):
-- Live local verification: user ran the app via `npm run dev` (`http://localhost:5173/`)
-  and confirmed working behavior in the local browser.
-- `npm run typecheck` (`tsc --noEmit`) passed with 0 errors.
-- `npm run build` (`tsc --noEmit && vite build`) passed.
-- `npm run check:browser` passed on Chromium 159.0.8154.6 with SwiftShader
-  software WebGL, 0 console/page errors:
-  - First screen (`scrollY = 0`): at `1440x1000`, viewport, selector, and scene
-    bar end at `834.84`, `912.84`, and `922.84 px`; at `390x844`, they end at
-    `656.38`, `724.38`, and `843.38 px`, with `0` horizontal overflow and `0`
-    viewport occluders.
-  - Render statistics (`renderer.info`): `32` draw calls, `65,378` triangles,
-    `16` geometries, and `15` textures at patio pose (down from `94` baseline
-    draw calls), with `0 B` external image, font, or 3D model transfers.
-  - Reverse inspection (`/?pose=reverse`): UV and human canvases are byte-equal
-    with `0` violet pixels; flower pose shows `0%` clipped pixels and `0.41%`
-    desktop / `0.72%` mobile crushed pixels.
-  - Look-around, drag-vs-click raycast, approach, cancel, return, 5 fixed-pose
-    mode cycles, keyboard radios, reduced motion, emulated touch, WebGL fallback,
-    and context-loss recovery all pass.
-- Evidence saved in `test-results/patio/` and `test-results/patio/visual-quality/`
-  while preserving historical `test-results/flower/`. Skipped: quantitative
-  hardware GPU frame-timing benchmark and external visitor comprehension study.
+On 2026-11-17, Linux, Node v22.23.1, Chromium 159.0.8154.6, SwiftShader:
 
-## Next actions
+- `npm ci`, `npm run typecheck`, and `npm run build` passed. Build retains the
+  existing Vite advisory for the Three.js chunk larger than 500 kB.
+- `npm run check:browser` passed in this shared checkout with zero page/console
+  errors and external requests. This host required existing Chromium libraries
+  through `LD_LIBRARY_PATH=/tmp/umwelt-browser-libs/extracted/usr/lib/x86_64-linux-gnu`.
+- Existing bee approach/cancel/return, fixed-pose UV toggles, keyboard,
+  reverse-petal equality, fallback, touch, and WebGL recovery checks pass.
+- Web tests cover actual overview and sector scene clicks, distinct cues,
+  keyboard and emulated touch including drag rejection, hidden prey, wrong and
+  correct guesses, replay/new rounds, modes, reduced-motion changes, leaving,
+  and context loss during pulse/search/travel.
+- Five settled checks record unchanged RAF and WebGL draw counters. Real
+  context-loss probes hold test-only RAF timestamps to keep pulses/travel
+  active until the asynchronous event. Production timing is unchanged.
+- Desktop 1440x1000 and mobile 390x844 web control bars end at 985.84px and
+  788.38px. No horizontal overflow or sampled occluders. Final captures inspected.
+- Evidence: `test-results/patio/verification.json`, `interaction.webm`,
+  `web-vibrations-desktop.png`, `web-vibrations-mobile.png`, and
+  `web-found-human-desktop.png`. Historical flower/visual-quality evidence is
+  preserved. `git diff --check` passed.
 
-1. Research primary scientific sources for one bounded perceptual signal of a
-   second animal in the same patio (`docs/research/`) before planning UI or scene
-   changes.
-2. Collect comprehension feedback from 1-3 external visitors (what changed,
-   where it changed, and what the false colors represent).
-3. Optional: configure static hosting (such as GitHub Pages) when ready to test
-   and share outside the local network.
+## Limits and next actions
+
+1. Ask 1–3 visitors to explain the two signals and what the colors/pulses mean.
+2. Check controls and readability on a physical phone. Emulated touch does not
+   establish physical-device usability or hardware WebGL performance.
+3. Configure static hosting when requested so visitors can test outside the
+   local development environment. No hosting has been configured.
+
+Web geometry, camera, sector count, palette, pulse speed, and hidden insect are
+teaching choices. The experiment does not model calibrated wave mechanics or
+active spider sensing. Patio surfaces carry no animal-vision maps. Primary
+sources, settled choices, and later candidates remain in `docs/research/`,
+`DECISIONS.md`, and `BACKLOG.md`.

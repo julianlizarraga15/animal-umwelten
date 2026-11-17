@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
+import { verifySpiderWeb, verifyWebTouch } from './verify-spider-web.mjs';
 import { measureFirstScreen, pixelStats, readRenderStats } from './scene-page.mjs';
 
 const output = 'test-results/patio';
@@ -17,6 +18,7 @@ let desktopFirstScreen;
 let mobileFirstScreen;
 let patioRenderStats;
 let flowerRenderStats;
+let webEvidence;
 
 try {
   browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
@@ -36,6 +38,21 @@ try {
     if (!url.startsWith('http://127.0.0.1:4174')) transferred.push(url);
   });
 
+  await page.addInitScript(() => {
+    window.sceneCounters = { raf: 0, draw: 0 };
+    const originalRaf = window.requestAnimationFrame;
+    window.requestAnimationFrame = (callback) => {
+      window.sceneCounters.raf++;
+      return originalRaf.call(window, timestamp => callback(window.sceneHoldTime ?? timestamp));
+    };
+    for (const method of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced']) {
+      const original = WebGL2RenderingContext.prototype[method];
+      WebGL2RenderingContext.prototype[method] = function (...args) {
+        window.sceneCounters.draw++;
+        return original.apply(this, args);
+      };
+    }
+  });
   await page.goto('http://127.0.0.1:4174');
   const canvas = page.locator('canvas');
   await canvas.waitFor({ state: 'visible' });
@@ -165,27 +182,35 @@ try {
   await page.waitForFunction(() => document.body.dataset.camera === 'patio');
   await settle();
 
-  await approachBtn.click();
   const lossState = await page.evaluate(async () => {
     const el = document.querySelector('canvas');
     const ext = el?.getContext('webgl2')?.getExtension('WEBGL_lose_context');
     if (!ext) throw new Error('Context-loss extension unavailable');
+    let eventCamera;
+    el.addEventListener('webglcontextlost', () => eventCamera = document.body.dataset.camera, { once: true, capture: true });
+    window.sceneHoldTime = performance.now();
+    document.querySelector('#approach').click();
     ext.loseContext();
     await new Promise((resolve) => setTimeout(resolve, 100));
     const state = {
+      eventCamera,
       messageVisible: !(document.querySelector('#webgl-error')?.hidden ?? true),
       buttonsDisabled: [...document.querySelectorAll('.camera-controls button')].every((b) => b.disabled),
       cameraState: document.body.dataset.camera,
     };
+    window.sceneHoldTime = null;
     ext.restoreContext();
     return state;
   });
+  assert.equal(lossState.eventCamera, 'approaching', 'Actual context-loss event interrupts active flower travel');
   assert(lossState.messageVisible && lossState.buttonsDisabled, 'Context loss displays recovery guidance and disables controls');
   assert.equal(lossState.cameraState, 'patio', 'Interrupted travel resets cleanly to stationary patio state');
   await page.waitForFunction(() => document.querySelector('#webgl-error')?.hidden && !document.querySelector('canvas')?.hidden);
   await settle();
   assert.equal(await page.evaluate(() => document.body.dataset.camera), 'patio', 'Interrupted travel does not resume after restoration');
   assert(await approachBtn.isEnabled(), 'Approach button is usable again after context restoration');
+
+  webEvidence = await verifySpiderWeb({ page, output, observations });
 
   observations.push('Desktop and narrow viewports render patio and flower; look-around, drag-vs-click, approach, cancel, return, reduced motion, 5 mode toggles, and context-loss recovery pass.');
 
@@ -199,6 +224,7 @@ try {
   });
   await fallback.goto('http://127.0.0.1:4174');
   await fallback.locator('#webgl-error').waitFor({ state: 'visible' });
+  assert(await fallback.locator('.viewport-footer button, .viewport-footer input').evaluateAll(controls => controls.every(control => control.disabled)), 'Initialization failure disables every scene control');
   await fallback.locator('summary').click();
   assert(await fallback.getByRole('link', { name: /Horth/ }).isVisible(), 'Scientific sources remain available without WebGL');
   await fallback.screenshot({ path: `${output}/webgl-fallback.png`, fullPage: true });
@@ -244,6 +270,9 @@ try {
     await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     assert(!beforeTouch.equals(await touchCanvas.screenshot()), 'Touch drag looks around the patio');
     assert.equal(await touchPage.evaluate(() => document.body.dataset.camera), 'patio', 'Touch drag does not trigger approach');
+    await touchPage.reload();
+    await touchPage.waitForSelector('canvas[data-ready="true"]');
+    await verifyWebTouch(touchPage);
     observations.push('Browser-emulated touch look, approach, and return pass; no physical mobile device tested.');
   } finally {
     await touchContext.close();
@@ -260,6 +289,7 @@ try {
     errors,
     firstScreen: { desktop: desktopFirstScreen, mobile: mobileFirstScreen },
     renderStats: { patio: patioRenderStats, flower: flowerRenderStats },
+    web: webEvidence,
     assetBytes: 0,
     lighting: 'directional',
   }, null, 2));

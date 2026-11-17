@@ -1,8 +1,8 @@
 # Umwelt Explorer
 
 Explore a small patio corner from a first-person viewpoint, approach one
-schematic flower, and compare a bee-relevant UV contrast encoding with a human
-reference. Inspired by Ed Yong's *An Immense World*. The interface is in Spanish.
+schematic flower or horizontal spider web, and compare bee-relevant UV contrast
+and a vibration-direction encoding with human references. Inspired by Ed Yong's *An Immense World*. The interface is in Spanish.
 False colors explain a documented signal and do not reproduce an animal's
 subjective experience.
 
@@ -22,6 +22,14 @@ from your current position. Click or tap the flower—or press "Acercarse a la
 flor"—to approach the upper petals, and "Volver al patio" to cancel travel or
 return. Switch between "Contraste UV" (initial mode) and "Referencia humana"
 with the radio controls; arrow keys change a focused radio selection.
+
+Choose "Acercarse a la red" or tap the web to explore the second signal. At the
+web, tap a location or use the four numbered sector buttons. "Buscar una mosca"
+starts a challenge with the insect hidden in both modes. Follow the strongest
+highlighted radius, choose its numbered sector, and retry or repeat the signal
+as needed. The insect appears after a correct answer. Switching representations
+preserves the round. Leaving the web cancels it. The fixed web camera keeps the
+numbered controls aligned with the scene. Reduced motion uses a static cue.
 
 ## Check the application
 
@@ -55,6 +63,11 @@ limits. *Apis mellifera* is the sensory reference. The schematic floral pattern 
 based on *Rudbeckia hirta*. Pattern extent and colors are not measured reflectance.
 The two sources of evidence do not constitute a behavioral test of this exact
 bee and flower pairing.
+
+The [spider research brief](docs/research/spider-vibrations.md) separates observed
+vibration-guided orientation in *Uloborus diversus* from the schematic web,
+numbered sectors, and turquoise pulse graphics used here. The hidden insect is
+a teaching choice and does not imply spider blindness.
 
 ## Working on the project
 

@@ -6,6 +6,7 @@ import {
 } from 'three';
 import { createFlower, type View } from './flower';
 import { createPatio } from './patio';
+import { createSpiderWeb, WEB_CENTER, WEB_SECTORS, type Sector } from './spider-web';
 
 type Pose = { position: Vector3; yaw: number; pitch: number };
 
@@ -42,8 +43,9 @@ type Trial = { readonly lighting: LightingId; readonly inspection: InspectionId 
 
 type CameraState =
   | { kind: 'patio' }
-  | { kind: 'approaching'; startTime: number; fromPos: Vector3; fromYaw: number; fromPitch: number }
+  | { kind: 'approaching'; destination: 'flower' | 'web'; startTime: number; fromPos: Vector3; fromYaw: number; fromPitch: number }
   | { kind: 'flower' }
+  | { kind: 'web' }
   | { kind: 'returning'; startTime: number; fromPos: Vector3; fromYaw: number; fromPitch: number }
   | { kind: 'inspection'; id: InspectionId };
 
@@ -100,6 +102,8 @@ const FLOWER_POSE: Pose = {
   ...yawPitchFromLookAt(FLOWER_POS, new Vector3(0, 1.5, 0)),
 };
 
+const WEB_POSE = poseLookingAt(WEB_CENTER.clone().add(new Vector3(0, 2.85, 1.72)), WEB_CENTER);
+
 const viewport = document.querySelector('#viewport');
 const errorMessage = document.querySelector('#webgl-error');
 if (!(viewport instanceof HTMLElement) || !(errorMessage instanceof HTMLElement)) {
@@ -118,7 +122,7 @@ function setLookButtonsDisabled(disabled: boolean): void {
 }
 
 function setAllControlsDisabled(disabled: boolean): void {
-  document.querySelectorAll<HTMLButtonElement>('.camera-controls button').forEach((button) => {
+  document.querySelectorAll<HTMLButtonElement | HTMLInputElement>('.viewport-footer button, .viewport-footer input').forEach((button) => {
     button.disabled = disabled;
   });
 }
@@ -172,7 +176,7 @@ function mount(container: HTMLElement): void {
   const canvas = renderer.domElement;
   canvas.tabIndex = 0;
   canvas.setAttribute('role', 'img');
-  canvas.setAttribute('aria-label', 'Patio con maceta y flor esquemática de Rudbeckia hirta');
+  canvas.setAttribute('aria-label', 'Patio con flor y red horizontal esquemáticas');
   container.append(canvas);
 
   const scene = new Scene();
@@ -187,6 +191,21 @@ function mount(container: HTMLElement): void {
   const flower = createFlower();
   flower.setView('uv');
   scene.add(flower.root);
+  const web = createSpiderWeb();
+  scene.add(web.root);
+  const webControls = document.querySelector<HTMLElement>('#web-controls');
+  const webStatus = document.querySelector<HTMLElement>('#web-status');
+  const webApproach = document.querySelector<HTMLButtonElement>('#approach-web');
+  const beeSelector = document.querySelector<HTMLElement>('#bee-selector');
+  WEB_SECTORS.forEach((sector) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = sector.label;
+    button.setAttribute('aria-label', sector.label);
+    button.addEventListener('click', () => touchSector(sector));
+    document.querySelector('#web-sectors')?.append(button);
+    return button;
+  });
 
   const inspection = trial.inspection;
   let cameraState: CameraState = inspection ? { kind: 'inspection', id: inspection } : { kind: 'patio' };
@@ -207,6 +226,23 @@ function mount(container: HTMLElement): void {
 
   function syncUiState(): void {
     document.body.dataset.camera = cameraState.kind;
+    const atWeb = cameraState.kind === 'web';
+    canvas.setAttribute('aria-label', atWeb ? 'Red horizontal con araña de ocho patas y cuatro sectores numerados. Usa los botones de sector para tocar o responder.' : 'Patio con flor y red horizontal esquemáticas. Usa los botones para acercarte.');
+    if (webControls) webControls.hidden = !atWeb;
+    if (beeSelector) beeSelector.hidden = atWeb;
+    const beeLesson = document.querySelector<HTMLElement>('#bee-lesson');
+    const spiderLesson = document.querySelector<HTMLElement>('#spider-lesson');
+    if (beeLesson) beeLesson.hidden = atWeb;
+    if (spiderLesson) spiderLesson.hidden = !atWeb;
+    const specimenHeading = document.querySelector('#specimen-title');
+    if (specimenHeading) specimenHeading.textContent = atWeb ? '02 / RED · VIBRACIONES' : '01 / PATIO · EXPLORAR';
+    const specimenLabel = document.querySelector('#specimen-label');
+    if (specimenLabel) specimenLabel.textContent = atWeb ? 'Uloborus diversus' : 'Rudbeckia hirta';
+    if (webApproach) webApproach.disabled = cameraState.kind !== 'patio';
+    document.querySelectorAll<HTMLInputElement>('input[name="view"]').forEach(input => input.disabled = false);
+    document.querySelectorAll<HTMLButtonElement | HTMLInputElement>('#web-controls button, #web-controls input').forEach(input => input.disabled = !atWeb);
+    if (webStatus) webStatus.textContent = web.status;
+    document.body.dataset.webPhase = web.phase;
     if (!contextAvailable) {
       setAllControlsDisabled(true);
       return;
@@ -217,14 +253,20 @@ function mount(container: HTMLElement): void {
         if (returnButton) returnButton.disabled = true;
         setLookButtonsDisabled(false);
         if (travelStatus) {
-          travelStatus.innerHTML = 'Arrastra para mirar alrededor <span>·</span> Toca la flor para acercarte';
+          travelStatus.innerHTML = 'Arrastra para mirar alrededor <span>·</span> Toca la flor o la red para acercarte';
         }
         break;
       case 'approaching':
         if (approachButton) approachButton.disabled = true;
         if (returnButton) returnButton.disabled = false;
         setLookButtonsDisabled(true);
-        if (travelStatus) travelStatus.textContent = 'Acercándose a la flor…';
+        if (travelStatus) travelStatus.textContent = cameraState.destination === 'web' ? 'Acercándose a la red…' : 'Acercándose a la flor…';
+        break;
+      case 'web':
+        if (approachButton) approachButton.disabled = true;
+        if (returnButton) returnButton.disabled = false;
+        setLookButtonsDisabled(true);
+        if (travelStatus) travelStatus.textContent = 'Red horizontal · toca un sector o usa los botones numerados';
         break;
       case 'flower':
         if (approachButton) approachButton.disabled = true;
@@ -241,7 +283,7 @@ function mount(container: HTMLElement): void {
         if (travelStatus) travelStatus.textContent = 'Volviendo al patio…';
         break;
       case 'inspection':
-        setAllControlsDisabled(true);
+        document.querySelectorAll<HTMLButtonElement>('.camera-controls button').forEach(button => button.disabled = true);
         if (travelStatus) travelStatus.textContent = 'Vista de inspección · reverso de los pétalos';
         break;
       default:
@@ -273,12 +315,15 @@ function mount(container: HTMLElement): void {
       stopTravelLoop();
       return;
     }
+    rafId = 0;
+    const pulseActive = web.update(now, prefersReducedMotion());
     if (cameraState.kind !== 'approaching' && cameraState.kind !== 'returning') {
-      rafId = 0;
+      render();
+      if (pulseActive) rafId = requestAnimationFrame(stepTravel);
       return;
     }
     const duration = cameraState.kind === 'approaching' ? APPROACH_DURATION_MS : RETURN_DURATION_MS;
-    const targetPose = cameraState.kind === 'approaching' ? FLOWER_POSE : PATIO_POSE;
+    const targetPose = cameraState.kind === 'approaching' ? (cameraState.destination === 'web' ? WEB_POSE : FLOWER_POSE) : PATIO_POSE;
     const elapsed = Math.max(0, now - cameraState.startTime);
     const rawT = Math.min(1, elapsed / duration);
     const eased = easeInOutCubic(rawT);
@@ -291,25 +336,27 @@ function mount(container: HTMLElement): void {
 
     if (rawT >= 1) {
       rafId = 0;
-      cameraState = cameraState.kind === 'approaching' ? { kind: 'flower' } : { kind: 'patio' };
+      cameraState = cameraState.kind === 'approaching' ? { kind: cameraState.destination } : { kind: 'patio' };
       syncUiState();
       return;
     }
     rafId = requestAnimationFrame(stepTravel);
   }
 
-  function startApproach(): void {
+  function startApproach(destination: 'flower' | 'web' = 'flower'): void {
     if (!contextAvailable || cameraState.kind !== 'patio') return;
     stopTravelLoop();
     if (prefersReducedMotion()) {
-      applyPose(FLOWER_POSE.position, FLOWER_POSE.yaw, FLOWER_POSE.pitch);
-      cameraState = { kind: 'flower' };
+      const target = destination === 'web' ? WEB_POSE : FLOWER_POSE;
+      applyPose(target.position, target.yaw, target.pitch);
+      cameraState = { kind: destination };
       syncUiState();
       render();
       return;
     }
     cameraState = {
       kind: 'approaching',
+      destination,
       startTime: performance.now(),
       fromPos: camera.position.clone(),
       fromYaw: yaw,
@@ -321,8 +368,9 @@ function mount(container: HTMLElement): void {
 
   function startReturn(): void {
     if (!contextAvailable) return;
-    if (cameraState.kind !== 'flower' && cameraState.kind !== 'approaching') return;
+    if (cameraState.kind !== 'flower' && cameraState.kind !== 'web' && cameraState.kind !== 'approaching') return;
     stopTravelLoop();
+    web.clear();
     if (prefersReducedMotion()) {
       applyPose(PATIO_POSE.position, PATIO_POSE.yaw, PATIO_POSE.pitch);
       cameraState = { kind: 'patio' };
@@ -348,13 +396,16 @@ function mount(container: HTMLElement): void {
     render();
   }
 
-  function hitsFlower(clientX: number, clientY: number): boolean {
+  function sceneHit(clientX: number, clientY: number) {
     const rect = canvas.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return false;
+    if (rect.width <= 0 || rect.height <= 0) return null;
     pointerNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     pointerNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointerNdc, camera);
-    return raycaster.intersectObject(flower.root, true).length > 0;
+    const webHit = raycaster.intersectObject(web.hitArea)[0];
+    const flowerHit = raycaster.intersectObject(flower.root, true)[0];
+    if (webHit && (!flowerHit || webHit.distance < flowerHit.distance)) return { kind: 'web' as const, point: webHit.point };
+    return flowerHit ? { kind: 'flower' as const } : null;
   }
 
   let activePointerId: number | null = null;
@@ -385,7 +436,7 @@ function mount(container: HTMLElement): void {
       return;
     }
     if (event.pointerType === 'mouse' && cameraState.kind === 'patio') {
-      canvas.style.cursor = hitsFlower(event.clientX, event.clientY) ? 'pointer' : 'grab';
+      canvas.style.cursor = sceneHit(event.clientX, event.clientY) ? 'pointer' : 'grab';
     } else {
       canvas.style.cursor = 'grab';
     }
@@ -397,9 +448,10 @@ function mount(container: HTMLElement): void {
       canvas.releasePointerCapture(event.pointerId);
     }
     activePointerId = null;
-    if (dragDistance <= DRAG_THRESHOLD_PX && cameraState.kind === 'patio' && hitsFlower(event.clientX, event.clientY)) {
-      startApproach();
-    }
+    if (dragDistance > DRAG_THRESHOLD_PX || !contextAvailable) return;
+    const hit = sceneHit(event.clientX, event.clientY);
+    if (cameraState.kind === 'patio' && hit) startApproach(hit.kind);
+    else if (cameraState.kind === 'web' && hit?.kind === 'web') touchSector(web.sectorAt(hit.point));
   });
 
   canvas.addEventListener('pointercancel', (event) => {
@@ -449,11 +501,13 @@ function mount(container: HTMLElement): void {
   canvas.addEventListener('webglcontextlost', (event) => {
     event.preventDefault();
     stopTravelLoop();
+    web.clear();
     if (cameraState.kind === 'approaching' || cameraState.kind === 'returning') {
       applyPose(PATIO_POSE.position, PATIO_POSE.yaw, PATIO_POSE.pitch);
       cameraState = { kind: 'patio' };
     }
     contextAvailable = false;
+    activePointerId = null;
     canvas.hidden = true;
     syncUiState();
     showError('La vista 3D se ha interrumpido. Recarga la página para recuperar el patio. La explicación y las fuentes siguen disponibles.');
@@ -475,14 +529,52 @@ function mount(container: HTMLElement): void {
       document.body.dataset.view = nextView;
       if (viewStatus) {
         viewStatus.textContent = nextView === 'uv'
-          ? 'Colores explicativos: el contraste UV está en la cara superior de los pétalos. El resto del patio es solo contexto espacial.'
+          ? 'Colores explicativos: el contraste UV solo se aplica a los pétalos superiores; la red tiene su propia representación.'
           : 'Referencia humana: los pétalos se ven amarillos. Selecciona «Contraste UV» para ver las dos regiones.';
       }
       render();
     });
   });
 
-  approachButton?.addEventListener('click', startApproach);
+  function signalChanged(): void {
+    web.update(performance.now(), prefersReducedMotion());
+    syncUiState();
+    render();
+    if (rafId === 0) rafId = requestAnimationFrame(stepTravel);
+  }
+  function touchSector(sector: Sector): void {
+    if (!contextAvailable || cameraState.kind !== 'web') return;
+    web.touch(sector, performance.now(), prefersReducedMotion());
+    signalChanged();
+  }
+  document.querySelector('#new-round')?.addEventListener('click', () => {
+    if (!contextAvailable || cameraState.kind !== 'web') return;
+    web.newRound(performance.now(), prefersReducedMotion());
+    signalChanged();
+  });
+  document.querySelector('#repeat-signal')?.addEventListener('click', () => {
+    if (!contextAvailable || cameraState.kind !== 'web') return;
+    web.repeat(performance.now(), prefersReducedMotion());
+    signalChanged();
+  });
+  document.querySelectorAll<HTMLInputElement>('input[name="web-view"]').forEach(input => input.addEventListener('change', () => {
+    if (!contextAvailable || !input.checked || (input.value !== 'human' && input.value !== 'vibrations')) return;
+    web.setView(input.value);
+    signalChanged();
+  }));
+  window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', () => {
+    if (!contextAvailable) return;
+    if (prefersReducedMotion() && (cameraState.kind === 'approaching' || cameraState.kind === 'returning')) {
+      const target = cameraState.kind === 'returning' ? PATIO_POSE : cameraState.destination === 'web' ? WEB_POSE : FLOWER_POSE;
+      const kind = cameraState.kind === 'returning' ? 'patio' : cameraState.destination;
+      stopTravelLoop();
+      applyPose(target.position, target.yaw, target.pitch);
+      cameraState = { kind };
+    }
+    signalChanged();
+  });
+  approachButton?.addEventListener('click', () => startApproach());
+  webApproach?.addEventListener('click', () => startApproach('web'));
   returnButton?.addEventListener('click', startReturn);
   document.querySelector('#look-left')?.addEventListener('click', () => applyLookDelta(LOOK_STEP_RAD, 0));
   document.querySelector('#look-right')?.addEventListener('click', () => applyLookDelta(-LOOK_STEP_RAD, 0));

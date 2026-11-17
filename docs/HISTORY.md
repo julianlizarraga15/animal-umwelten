@@ -1,5 +1,21 @@
 # History
 
+## 2026-11-17: Interactive spider web in the shared patio
+
+Added a second camera destination with a schematic horizontal web, spider, and
+four numbered sectors. Visitors can create directional vibration graphics and
+locate a hidden fly, with human-reference comparison, retry, replay, new rounds,
+keyboard and touch equivalents, and static reduced-motion cues. Contextual
+lessons cite the new primary-source research brief and state rendering limits.
+
+Independent plan and code reviews resolved a mobile heading overlap and a
+context-loss test timing gap. Typecheck, production build, and the extended
+Chromium browser suite pass in the shared checkout. Existing bee checks remain
+green. Browser evidence in `test-results/patio/` includes desktop/mobile web
+captures and five stable idle RAF/draw checks. No physical phone, hardware GPU
+timing, visitor comprehension study, deployment, or PR was performed. The user
+subsequently requested committing and pushing the completed increment to main.
+
 ## 2026-11-16: Naturalistic flower and patio upgrade
 
 Rebuilt the flower as deterministic curved laminae with upper-only UV textures,

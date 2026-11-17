@@ -4,28 +4,35 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f4f2e9" />
-  <meta name="description" content="Explora un patio y acércate a una flor para comparar la referencia humana con una representación del contraste ultravioleta." />
+  <meta name="description" content="Explora una flor y una red en el mismo patio. Compara contraste ultravioleta y señales de vibración con referencias humanas." />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <title>Umwelt Explorer — Un patio, una señal floral</title>
+  <title>Umwelt Explorer — Un patio, dos señales</title>
 </head>
 <body data-view="uv" data-camera="patio">
   <div class="page">
     <header class="masthead"><a class="wordmark" href="./" aria-label="Umwelt Explorer, inicio">UMWELT <span>/ EXPLORER</span></a><span class="edition">ESTUDIO 01 <span>·</span> EL PATIO</span></header>
     <main>
-      <section class="intro" aria-labelledby="title"><h1 id="title">Un mundo que <em>no vemos.</em></h1><p class="subtitle">Un patio conocido. Una señal floral que no distinguimos a simple vista.</p></section>
+      <section class="intro" aria-labelledby="title"><h1 id="title">Un mundo que <em>no vemos.</em></h1><p class="subtitle">Un patio. Dos señales: el contraste de una flor y la vibración de una red.</p></section>
       <div class="experiment">
-        <section class="specimen" aria-label="Explorador del patio y la flor">
-          <div class="specimen-heading"><span>01 / PATIO · PUNTO DE OBSERVACIÓN</span><span><i>Rudbeckia hirta</i></span></div>
+        <section class="specimen" aria-label="Explorador del patio, la flor y la red">
+          <div class="specimen-heading"><span id="specimen-title">01 / PATIO · EXPLORAR</span><span><i id="specimen-label">Rudbeckia hirta</i></span></div>
           <div id="viewport" class="viewport"><p id="webgl-error" class="webgl-error" role="status" hidden>No se ha podido iniciar la vista 3D. Prueba a recargar la página o a usar un navegador con WebGL. Puedes seguir leyendo la explicación y las fuentes.</p></div>
           <div class="viewport-footer">
-            <fieldset class="view-selector">
+            <fieldset class="view-selector" id="bee-selector">
               <legend class="sr-only">Modo de representación</legend>
               <label><input type="radio" name="view" aria-label="Referencia humana" value="human" /><span><strong>Referencia humana</strong><small>Los pétalos parecen amarillos</small></span><span class="radio-dot"></span></label>
               <label><input type="radio" name="view" aria-label="Contraste UV" value="uv" checked /><span><strong>Contraste UV</strong><small>Una señal disponible para una abeja</small></span><span class="radio-dot"></span></label>
             </fieldset>
+            <div id="web-controls" hidden>
+              <fieldset class="view-selector"><legend class="sr-only">Representación de la red</legend><label><input type="radio" name="web-view" value="human" aria-label="Red: referencia humana" /><span><strong>Referencia humana</strong></span><span class="radio-dot"></span></label><label><input type="radio" name="web-view" value="vibrations" aria-label="Vibraciones" checked /><span><strong>Vibraciones</strong></span><span class="radio-dot"></span></label></fieldset>
+              <div id="web-sectors" class="web-actions" aria-label="Sectores de la red"></div>
+              <div class="web-actions"><button id="new-round" type="button">Buscar una mosca</button><button id="repeat-signal" type="button">Repetir señal</button></div>
+              <p id="web-status" role="status" aria-live="polite"></p>
+            </div>
             <p id="travel-status" class="travel-status" aria-live="polite">Arrastra para mirar alrededor <span>·</span> Toca la flor para acercarte</p>
             <div class="camera-controls" aria-label="Controles de exploración">
               <button type="button" id="approach" class="action-btn">Acercarse a la flor</button>
+              <button type="button" id="approach-web" class="action-btn">Acercarse a la red</button>
               <button type="button" id="return-patio" class="action-btn" disabled>Volver al patio</button>
               <span class="control-divider"></span>
               <button type="button" id="look-left" aria-label="Mirar a la izquierda" title="Mirar a la izquierda">←</button>
@@ -36,18 +43,18 @@
           </div>
         </section>
         <aside class="explanation" aria-label="Interpretar el contraste">
-          <div class="lesson"><span class="section-number">UNA SEÑAL OCULTA</span><h2>El mismo amarillo.<br />Un contraste distinto.</h2><p>En este patio, dos zonas de los pétalos pueden parecernos amarillas y reflejar distinta cantidad de ultravioleta. La abeja melífera tiene receptores sensibles al UV.</p></div>
+          <div id="bee-lesson"><div class="lesson"><span class="section-number">UNA SEÑAL OCULTA</span><h2>El mismo amarillo.<br />Un contraste distinto.</h2><p>En este patio, dos zonas de los pétalos pueden parecernos amarillas y reflejar distinta cantidad de ultravioleta. La abeja melífera tiene receptores sensibles al UV.</p></div>
           <div class="legend" aria-label="Leyenda del contraste UV">
             <div><span class="swatch basal"></span><p><strong>Base del pétalo</strong><span>Mayor absorción UV</span></p></div>
             <div><span class="swatch distal"></span><p><strong>Extremo del pétalo</strong><span>Mayor reflexión UV</span></p></div>
-            <p class="legend-note" id="view-status" aria-live="polite">Colores explicativos: el contraste UV está en la cara superior de los pétalos. El resto del patio es solo contexto espacial.</p>
+            <p class="legend-note" id="view-status" aria-live="polite">Colores explicativos: el contraste UV solo se aplica a los pétalos superiores; la red tiene su propia representación.</p>
           </div>
           <p class="limit"><strong>Una representación, no una mirada literal.</strong> Patrón esquemático basado en <i>Rudbeckia hirta</i>. El punto de vista y el acercamiento son decisiones de exploración, no óptica ni escala corporal de una abeja. Los colores falsos muestran el contraste UV solo en los pétalos superiores; suelo, muros y maceta no modelan visión animal.</p>
-        </aside>
+        </div><div class="lesson" id="spider-lesson" hidden><span class="section-number">UNA RED QUE TRANSMITE</span><h2>¿Dónde ha caído?</h2><p>Acércate a la red y toca sus sectores. Después, busca la mosca siguiendo el radio resaltado. En <i>Uloborus diversus</i>, una araña de red horizontal, se ha observado orientación hacia el radio con mayor amplitud de vibración.</p><p class="limit">El turquesa y los pulsos son gráficos explicativos, no visión de araña ni mecánica calibrada. Ocultamos la mosca durante el reto en ambos modos para concentrarnos en la señal; no implica ceguera. Cuatro sectores, escala y ubicación son decisiones esquemáticas.</p></div></aside>
       </div>
       <footer class="page-footer">
         <p>UN PATIO ES UN COMIENZO.<br /><span>Explorar otras señales cambia las preguntas que hacemos.</span></p>
-        <details><summary>La ciencia detrás del experimento <span>↗</span></summary><p>La sensibilidad UV de <i>Apis mellifera</i> y el patrón floral están documentados por separado. Su combinación aquí es ilustrativa; no es un ensayo de comportamiento de esta abeja sobre esta flor.</p><ul><li><a href="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0048577" target="_blank" rel="noopener noreferrer">Reser et al., 2012 — receptores y discriminación de color</a></li><li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4001241/" target="_blank" rel="noopener noreferrer">Horth et al., 2014 — bases absorbentes y extremos reflectantes</a></li><li><a href="https://pubmed.ncbi.nlm.nih.gov/19477473/" target="_blank" rel="noopener noreferrer">Schlangen et al., 2009 — las caras posteriores de los pétalos</a></li></ul></details>
+        <details><summary>La ciencia detrás del experimento <span>↗</span></summary><p>La sensibilidad UV de <i>Apis mellifera</i> y el patrón floral están documentados por separado. Su combinación aquí es ilustrativa; no es un ensayo de comportamiento de esta abeja sobre esta flor.</p><ul><li><a href="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0048577" target="_blank" rel="noopener noreferrer">Reser et al., 2012 — receptores y discriminación de color</a></li><li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4001241/" target="_blank" rel="noopener noreferrer">Horth et al., 2014 — bases absorbentes y extremos reflectantes</a></li><li><a href="https://pubmed.ncbi.nlm.nih.gov/19477473/" target="_blank" rel="noopener noreferrer">Schlangen et al., 2009 — las caras posteriores de los pétalos</a></li><li><a href="https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1014802" target="_blank" rel="noopener noreferrer">Hung, Corver y Gordus, 2026 — vibraciones y localización de presas</a></li></ul></details>
       </footer>
     </main>
   </div>

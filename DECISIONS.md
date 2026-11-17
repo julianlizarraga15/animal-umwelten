@@ -1,5 +1,24 @@
 # Decisions
 
+## 2026-11-17: Add web-borne vibrations in the shared patio
+
+Keep one scene and add a second camera destination for a schematic horizontal
+spider web. Independent design exploration and plan review favored a bounded
+web module over a second renderer or a generic animal framework. `main.ts`
+retains DOM, camera, and animation scheduling; the web owns geometry and a typed
+exploring/searching/found interaction.
+
+Use four numbered locations for touching the web and guessing where a fly is
+caught. During searching, hide the insect in both representations. Reveal it
+on success. This is a teaching choice, not a claim about spider eyesight.
+Colors and slowed pulses explain vibration direction. They do not reproduce
+subjective experience or calibrated mechanics. Reduced motion keeps a static
+directional cue. Leaving the web clears the interaction.
+
+The [research brief](docs/research/spider-vibrations.md) cites experimental work
+on *Uloborus diversus*. The [reviewed plan](docs/plans/20261117-spider-web.md)
+records acceptance criteria and rejected ownership alternatives.
+
 ## 2026-11-16: Retain directional daylight for the visual-quality scene
 
 Treatment B uses a lower fill-to-key ratio and raking sunlight from camera right.
