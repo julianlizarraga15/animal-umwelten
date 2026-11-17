@@ -5,6 +5,7 @@ import {
 
 export type Random = () => number;
 export type Rgb = readonly [red: number, green: number, blue: number];
+export type Rgba = readonly [red: number, green: number, blue: number, alpha: number];
 export type Field<T> = (s: number, t: number) => T;
 export type Raster = { readonly width: number; readonly height: number };
 
@@ -57,7 +58,7 @@ export function tileableNoise(random: Random, period: number): Field<number> {
   };
 }
 
-function texture(raster: Raster, field: Field<Rgb>, colorSpace: typeof SRGBColorSpace | typeof NoColorSpace): DataTexture {
+function texture(raster: Raster, field: Field<Rgb | Rgba>, colorSpace: typeof SRGBColorSpace | typeof NoColorSpace): DataTexture {
   const data = new Uint8Array(raster.width * raster.height * 4);
   for (let y = 0; y < raster.height; y++) {
     for (let x = 0; x < raster.width; x++) {
@@ -66,7 +67,7 @@ function texture(raster: Raster, field: Field<Rgb>, colorSpace: typeof SRGBColor
       data[offset] = Math.round(Math.max(0, Math.min(1, color[0])) * 255);
       data[offset + 1] = Math.round(Math.max(0, Math.min(1, color[1])) * 255);
       data[offset + 2] = Math.round(Math.max(0, Math.min(1, color[2])) * 255);
-      data[offset + 3] = 255;
+      data[offset + 3] = Math.round(Math.max(0, Math.min(1, color[3] ?? 1)) * 255);
     }
   }
   const result = new DataTexture(data, raster.width, raster.height, RGBAFormat, UnsignedByteType);
@@ -80,7 +81,7 @@ function texture(raster: Raster, field: Field<Rgb>, colorSpace: typeof SRGBColor
   return result;
 }
 
-export function colorTexture(raster: Raster, field: Field<Rgb>): DataTexture {
+export function colorTexture(raster: Raster, field: Field<Rgb | Rgba>): DataTexture {
   return texture(raster, field, SRGBColorSpace);
 }
 

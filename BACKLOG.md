@@ -2,6 +2,9 @@
 
 ## Next experiment
 
+- Follow the [cozy patio plan](docs/plans/20261117-cozy-patio.md), starting with
+  static composition and lighting before animation.
+
 - Evaluate whether visitors understand the spider's directional vibration cue
   and the difference between a visible signal encoding and animal vision.
 - Evaluate whether the patio context improves understanding of the floral contrast.

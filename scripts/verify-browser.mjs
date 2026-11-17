@@ -291,7 +291,7 @@ try {
     renderStats: { patio: patioRenderStats, flower: flowerRenderStats },
     web: webEvidence,
     assetBytes: 0,
-    lighting: 'directional',
+    lighting: 'afternoon',
   }, null, 2));
   console.log(observations.join('\n'));
   console.log(`Screenshots, recording, and verification metadata saved in ${output}.`);

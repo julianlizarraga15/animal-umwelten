@@ -1,5 +1,30 @@
 # Decisions
 
+## 2026-11-17: Select warm late-afternoon lighting and bounded cozy patio motion
+
+After comparing the warm late-afternoon (`afternoon`) and cooler shaded
+(`shade`) static treatments on the same composition, `afternoon` is now the
+default lighting: low-angle warm sun (`0xffe0b2`) with peach plaster walls,
+worn terracotta, sage foliage, and restrained violet-tinted ground fill
+(`0x6d617a`) gives the patio depth while preserving flower UV signal contrast
+and web readability.
+
+Added three handmade details (repaired companion pot with lime seam and metal
+staples, feathered mineral water stain on the plaster wall, and a sage sprout
+between tiles) plus a curved foreground leaf, smoother quintic camera travel,
+brief bounded plant sway on travel arrival, and a short spider step/orientation
+toward the found fly. All motion settles completely and respects
+`prefers-reduced-motion`. See [the cozy patio plan](docs/plans/20261117-cozy-patio.md).
+
+## 2026-11-17: Establish the cozy garden through a static scene first
+
+The user selected a warm, inviting garden direction and requested a plan.
+Use Journey as an atmospheric reference, while developing an original patio.
+Establish composition, palette, and light before adding motion so animation
+reinforces a scene that already has character. Rendering choices remain
+tentative until visual comparison. See the
+[cozy patio plan](docs/plans/20261117-cozy-patio.md).
+
 ## 2026-11-17: Add web-borne vibrations in the shared patio
 
 Keep one scene and add a second camera destination for a schematic horizontal

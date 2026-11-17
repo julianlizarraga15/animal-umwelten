@@ -12,6 +12,7 @@ type Round = { kind: 'explore' } | { kind: 'search'; source: Sector } | { kind: 
 type Signal = { kind: 'quiet' } | { kind: 'pulse'; source: Sector; started: number } | { kind: 'static'; source: Sector };
 export const WEB_CENTER = new Vector3(2.2, -0.3, -0.8);
 const PULSE_DURATION = 1800;
+const SPIDER_APPROACH_MS = 650;
 
 export function createSpiderWeb() {
   const root = new Group();
@@ -47,19 +48,21 @@ export function createSpiderWeb() {
       root.add(leaf);
     }
   }
+  const spider = new Group();
   const abdomen = new Mesh(new SphereGeometry(0.115, 16, 12), dark);
   abdomen.scale.set(0.85, 0.7, 1.3);
   abdomen.position.set(0, 0.09, 0.07);
-  root.add(abdomen);
+  spider.add(abdomen);
   const head = new Mesh(new SphereGeometry(0.075, 12, 8), dark);
   head.position.set(0, 0.08, -0.1);
-  root.add(head);
+  spider.add(head);
   const legs = new LineBasicMaterial({ color: '#352c25' });
   for (const side of [-1, 1]) {
     for (let i = 0; i < 4; i++) {
-      line([new Vector3(side * 0.04, 0.08, -0.1 + i * 0.05), new Vector3(side * (0.21 + i * 0.015), 0.14, -0.27 + i * 0.16), new Vector3(side * (0.3 + i * 0.015), 0.015, -0.35 + i * 0.22)], legs);
+      line([new Vector3(side * 0.04, 0.08, -0.1 + i * 0.05), new Vector3(side * (0.21 + i * 0.015), 0.14, -0.27 + i * 0.16), new Vector3(side * (0.3 + i * 0.015), 0.015, -0.35 + i * 0.22)], legs, spider);
     }
   }
+  root.add(spider);
   const digits: Record<Sector['id'], number[][][]> = {
     1: [[[0, 0.06], [0, -0.06]]],
     2: [[[-0.04, -0.06], [0.04, -0.06], [0.04, 0], [-0.04, 0.06], [0.04, 0.06]]],
@@ -96,11 +99,24 @@ export function createSpiderWeb() {
   let signal: Signal = { kind: 'quiet' };
   let view: WebView = 'vibrations';
   let feedback = 'Toca la red o elige un sector para crear una señal.';
+  let spiderApproach: { source: Sector; started: number } | null = null;
+  function setSpiderPose(source: Sector | null, progress: number) {
+    if (!source) {
+      spider.position.set(0, 0, 0);
+      spider.rotation.y = 0;
+      return;
+    }
+    const targetYaw = Math.atan2(-source.x, -source.z);
+    const eased = progress * progress * (3 - 2 * progress);
+    spider.position.set(source.x * 0.28 * eased, 0, source.z * 0.28 * eased);
+    spider.rotation.y = Math.atan2(Math.sin(targetYaw), Math.cos(targetYaw)) * eased;
+  }
   function refresh() {
     cue.visible = view === 'vibrations' && signal.kind !== 'quiet';
     pulse.visible = cue.visible;
     fly.visible = round.kind === 'found';
     if (round.kind === 'found') fly.position.set(round.source.x * 0.95, 0.06, round.source.z * 0.95);
+    else setSpiderPose(null, 0);
   }
   function send(source: Sector, now: number, reduced: boolean) {
     signal = reduced ? { kind: 'static', source } : { kind: 'pulse', source, started: now };
@@ -128,6 +144,12 @@ export function createSpiderWeb() {
         if (source.id === round.source.id) {
           round = { kind: 'found', source };
           feedback = '¡Encontrada! La mosca aparece en la red. Puedes iniciar otra ronda.';
+          if (reduced) {
+            spiderApproach = null;
+            setSpiderPose(source, 1);
+          } else {
+            spiderApproach = { source, started: now };
+          }
         } else feedback = 'Ese sector no es. Sigue la señal más intensa e inténtalo de nuevo.';
         refresh();
       } else {
@@ -138,6 +160,7 @@ export function createSpiderWeb() {
     newRound(now: number, reduced: boolean) {
       const source = WEB_SECTORS[Math.floor(Math.random() * WEB_SECTORS.length)] ?? WEB_SECTORS[0];
       round = { kind: 'search', source };
+      spiderApproach = null;
       feedback = 'Una mosca ha caído. Está oculta en ambos modos: busca el sector de la señal más intensa.';
       send(source, now, reduced);
     },
@@ -145,20 +168,33 @@ export function createSpiderWeb() {
       if (round.kind !== 'explore') send(round.source, now, reduced);
       else if (signal.kind !== 'quiet') send(signal.source, now, reduced);
     },
-    clear() { round = { kind: 'explore' }; signal = { kind: 'quiet' }; feedback = 'Toca la red o elige un sector para crear una señal.'; refresh(); },
+    clear() { round = { kind: 'explore' }; signal = { kind: 'quiet' }; spiderApproach = null; feedback = 'Toca la red o elige un sector para crear una señal.'; refresh(); },
     update(now: number, reduced: boolean): boolean {
-      if (signal.kind !== 'pulse') return false;
-      const elapsed = now - signal.started;
-      if (reduced || elapsed >= PULSE_DURATION) {
-        signal = { kind: 'static', source: signal.source };
-        pulse.position.set(signal.source.x * 1.08, 0.035, signal.source.z * 1.08);
-        pulse.scale.setScalar(1);
-        return false;
+      let active = false;
+      if (spiderApproach) {
+        const elapsed = now - spiderApproach.started;
+        if (reduced || elapsed >= SPIDER_APPROACH_MS) {
+          setSpiderPose(spiderApproach.source, 1);
+          spiderApproach = null;
+        } else {
+          setSpiderPose(spiderApproach.source, Math.max(0, elapsed / SPIDER_APPROACH_MS));
+          active = true;
+        }
       }
-      const distance = 1 - (elapsed % 600) / 600;
-      pulse.position.set(signal.source.x * 1.08 * distance, 0.035, signal.source.z * 1.08 * distance);
-      pulse.scale.setScalar(0.6 + distance * 0.8);
-      return view === 'vibrations';
+      if (signal.kind === 'pulse') {
+        const elapsed = now - signal.started;
+        if (reduced || elapsed >= PULSE_DURATION) {
+          signal = { kind: 'static', source: signal.source };
+          pulse.position.set(signal.source.x * 1.08, 0.035, signal.source.z * 1.08);
+          pulse.scale.setScalar(1);
+        } else {
+          const distance = 1 - (elapsed % 600) / 600;
+          pulse.position.set(signal.source.x * 1.08 * distance, 0.035, signal.source.z * 1.08 * distance);
+          pulse.scale.setScalar(0.6 + distance * 0.8);
+          active = active || view === 'vibrations';
+        }
+      }
+      return active;
     },
   };
 }

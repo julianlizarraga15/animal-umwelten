@@ -26,6 +26,16 @@ type LightRig = {
   };
 };
 const LIGHTING = {
+  afternoon: {
+    exposure: 1.04,
+    sky: { color: 0xfff0dc, ground: 0x6d617a, intensity: 1.05 },
+    sun: { color: 0xffe0b2, intensity: 4.1, from: [7.2, 5.2, 3.6], shadowRadius: 3.5 },
+  },
+  shade: {
+    exposure: 1.06,
+    sky: { color: 0xe8eff6, ground: 0x6c6878, intensity: 1.25 },
+    sun: { color: 0xfff4e6, intensity: 2.5, from: [5.2, 8.5, 4.8], shadowRadius: 5.5 },
+  },
   soft: {
     exposure: 1.08,
     sky: { color: 0xfff9ea, ground: 0x8f8a78, intensity: 1.35 },
@@ -38,7 +48,7 @@ const LIGHTING = {
   },
 } as const satisfies Record<string, LightRig>;
 type LightingId = keyof typeof LIGHTING;
-const DEFAULT_LIGHTING: LightingId = 'directional';
+const DEFAULT_LIGHTING: LightingId = 'afternoon';
 type Trial = { readonly lighting: LightingId; readonly inspection: InspectionId | null };
 
 type CameraState =
@@ -49,8 +59,9 @@ type CameraState =
   | { kind: 'returning'; startTime: number; fromPos: Vector3; fromYaw: number; fromPitch: number }
   | { kind: 'inspection'; id: InspectionId };
 
-const APPROACH_DURATION_MS = 1050;
-const RETURN_DURATION_MS = 950;
+const APPROACH_DURATION_MS = 1150;
+const RETURN_DURATION_MS = 1050;
+const SWAY_DURATION_MS = 1400;
 const DRAG_THRESHOLD_PX = 6;
 const PITCH_LIMIT = Math.PI * 0.42;
 const LOOK_STEP_RAD = Math.PI / 14;
@@ -86,14 +97,14 @@ function lerpAngle(from: number, to: number, t: number): number {
   return normalizeAngle(from + delta * t);
 }
 
-function easeInOutCubic(t: number): number {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+function easeInOutSmoother(t: number): number {
+  return t * t * t * (t * (t * 6 - 15) + 10);
 }
 
-const PATIO_POS = new Vector3(4.2, 1.5, 5.0);
+const PATIO_POS = new Vector3(4.1, 1.18, 4.95);
 const PATIO_POSE: Pose = {
   position: PATIO_POS,
-  ...yawPitchFromLookAt(PATIO_POS, new Vector3(0, 1.1, 0)),
+  ...yawPitchFromLookAt(PATIO_POS, new Vector3(0, 1.0, 0)),
 };
 
 const FLOWER_POS = new Vector3(1.55, 3.35, 1.95);
@@ -187,7 +198,8 @@ function mount(container: HTMLElement): void {
   document.body.dataset.lighting = trial.lighting;
   installLighting(scene, renderer, LIGHTING[trial.lighting]);
 
-  scene.add(createPatio());
+  const patio = createPatio();
+  scene.add(patio.root);
   const flower = createFlower();
   flower.setView('uv');
   scene.add(flower.root);
@@ -213,6 +225,7 @@ function mount(container: HTMLElement): void {
   let pitch = PATIO_POSE.pitch;
   let contextAvailable = true;
   let rafId = 0;
+  let swayStartedAt: number | null = null;
 
   const raycaster = new Raycaster();
   const pointerNdc = new Vector2();
@@ -316,17 +329,30 @@ function mount(container: HTMLElement): void {
       return;
     }
     rafId = 0;
-    const pulseActive = web.update(now, prefersReducedMotion());
+    const reduced = prefersReducedMotion();
+    const webActive = web.update(now, reduced);
+    let swayActive = false;
+    if (swayStartedAt !== null) {
+      const swayElapsed = Math.max(0, now - swayStartedAt);
+      if (reduced || swayElapsed >= SWAY_DURATION_MS) {
+        patio.setSway(0);
+        swayStartedAt = null;
+      } else {
+        const st = swayElapsed / SWAY_DURATION_MS;
+        patio.setSway(Math.sin(st * Math.PI * 2.5) * (1 - st) * (1 - st));
+        swayActive = true;
+      }
+    }
     if (cameraState.kind !== 'approaching' && cameraState.kind !== 'returning') {
       render();
-      if (pulseActive) rafId = requestAnimationFrame(stepTravel);
+      if (webActive || swayActive) rafId = requestAnimationFrame(stepTravel);
       return;
     }
     const duration = cameraState.kind === 'approaching' ? APPROACH_DURATION_MS : RETURN_DURATION_MS;
     const targetPose = cameraState.kind === 'approaching' ? (cameraState.destination === 'web' ? WEB_POSE : FLOWER_POSE) : PATIO_POSE;
     const elapsed = Math.max(0, now - cameraState.startTime);
     const rawT = Math.min(1, elapsed / duration);
-    const eased = easeInOutCubic(rawT);
+    const eased = easeInOutSmoother(rawT);
 
     const nextPos = cameraState.fromPos.clone().lerp(targetPose.position, eased);
     const nextYaw = lerpAngle(cameraState.fromYaw, targetPose.yaw, eased);
@@ -335,9 +361,10 @@ function mount(container: HTMLElement): void {
     render();
 
     if (rawT >= 1) {
-      rafId = 0;
       cameraState = cameraState.kind === 'approaching' ? { kind: cameraState.destination } : { kind: 'patio' };
+      if (!reduced) swayStartedAt = now;
       syncUiState();
+      if (swayStartedAt !== null) rafId = requestAnimationFrame(stepTravel);
       return;
     }
     rafId = requestAnimationFrame(stepTravel);
@@ -346,6 +373,8 @@ function mount(container: HTMLElement): void {
   function startApproach(destination: 'flower' | 'web' = 'flower'): void {
     if (!contextAvailable || cameraState.kind !== 'patio') return;
     stopTravelLoop();
+    swayStartedAt = null;
+    patio.setSway(0);
     if (prefersReducedMotion()) {
       const target = destination === 'web' ? WEB_POSE : FLOWER_POSE;
       applyPose(target.position, target.yaw, target.pitch);
@@ -370,6 +399,8 @@ function mount(container: HTMLElement): void {
     if (!contextAvailable) return;
     if (cameraState.kind !== 'flower' && cameraState.kind !== 'web' && cameraState.kind !== 'approaching') return;
     stopTravelLoop();
+    swayStartedAt = null;
+    patio.setSway(0);
     web.clear();
     if (prefersReducedMotion()) {
       applyPose(PATIO_POSE.position, PATIO_POSE.yaw, PATIO_POSE.pitch);
@@ -501,6 +532,8 @@ function mount(container: HTMLElement): void {
   canvas.addEventListener('webglcontextlost', (event) => {
     event.preventDefault();
     stopTravelLoop();
+    swayStartedAt = null;
+    patio.setSway(0);
     web.clear();
     if (cameraState.kind === 'approaching' || cameraState.kind === 'returning') {
       applyPose(PATIO_POSE.position, PATIO_POSE.yaw, PATIO_POSE.pitch);
@@ -564,6 +597,10 @@ function mount(container: HTMLElement): void {
   }));
   window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', () => {
     if (!contextAvailable) return;
+    if (prefersReducedMotion()) {
+      swayStartedAt = null;
+      patio.setSway(0);
+    }
     if (prefersReducedMotion() && (cameraState.kind === 'approaching' || cameraState.kind === 'returning')) {
       const target = cameraState.kind === 'returning' ? PATIO_POSE : cameraState.destination === 'web' ? WEB_POSE : FLOWER_POSE;
       const kind = cameraState.kind === 'returning' ? 'patio' : cameraState.destination;

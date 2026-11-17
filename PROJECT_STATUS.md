@@ -10,9 +10,8 @@ contrast encoding. A horizontal spider web offers a vibration-direction
 interaction inspired by research on *Uloborus diversus*. The interface is in
 Spanish. Neither representation claims literal animal subjective experience.
 
-The spider increment is complete. This handoff accompanies the commit for
-`origin/main`, requested by the user after validation. No PR or public deployment
-was performed. The previous flower and visual-quality upgrades remain intact.
+The spider increment and cozy patio atmosphere pass are complete. No deployment
+was performed. See `docs/plans/20261117-cozy-patio.md`.
 
 ## Completed increment
 
@@ -70,3 +69,29 @@ teaching choices. The experiment does not model calibrated wave mechanics or
 active spider sensing. Patio surfaces carry no animal-vision maps. Primary
 sources, settled choices, and later candidates remain in `docs/research/`,
 `DECISIONS.md`, and `BACKLOG.md`.
+
+## Latest discussion
+
+Implemented the cozy patio plan (`docs/plans/20261117-cozy-patio.md`):
+
+- Compared `afternoon` (warm late-afternoon sun, peach plaster, violet-tinted
+  shadow fill) and `shade` (cooler diffused light) static treatments; selected
+  `afternoon` as the default lighting.
+- Added peach plaster, warm clay tiles, worn terracotta, a feathered wall water
+  stain, a repaired companion pot with seam and staples, a sage sprout between
+  tiles, and a curved foreground leaf in `src/patio.ts`.
+- Added smoother quintic camera easing and brief bounded plant sway on travel
+  arrival in `src/main.ts`, plus a restrained spider step/orientation upon
+  finding the fly in `src/spider-web.ts`. All motion settles completely and
+  respects `prefers-reduced-motion`.
+- Re-ran `npm run typecheck` and `npm run check:browser` on Windows (Node
+  v24.14.0, Playwright Chromium SwiftShader); all desktop (1440x1000), mobile
+  (390x844), reduced-motion, touch, reverse-petal, context-loss, and idle
+  RAF/draw-counter checks passed with zero errors and zero external requests.
+
+Next actions:
+
+1. Ask 1–3 visitors to explore both signals in the updated patio and explain what
+   the colors and pulses represent.
+2. Check controls and WebGL performance on a physical phone.
+3. Configure static hosting when ready to share externally.
