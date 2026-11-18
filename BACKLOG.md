@@ -10,10 +10,6 @@
   hold beside the concept in close and oblique views. The user accepted them
   on 2026-11-18 and they now sit in the garden.
 - Get a visual verdict on the integrated garden beside the concept.
-- Replace the flat upper canopy leaves with broad leaves. Each modeled blade
-  adds about 72k triangles, so a lower-resolution blade may be needed.
-- The human view shows an orange ray base. Horth et al. describe both regions
-  as yellow to humans. Decide whether to soften it for the lesson.
 - At the reverse inspection pose, petal-back hairs read as isolated thorns.
 
 

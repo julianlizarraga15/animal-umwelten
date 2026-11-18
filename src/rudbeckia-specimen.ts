@@ -196,7 +196,7 @@ type PetalSpec = {
   hue: number;
 };
 
-const PETAL_TOP = { base: new Color("#b8520c"), middle: new Color("#ec9d17"), tip: new Color("#f6bd36") };
+const PETAL_TOP = { base: new Color("#d48616"), middle: new Color("#ec9d17"), tip: new Color("#f6bd36") };
 const PETAL_BACK = { base: new Color("#b08a2e"), middle: new Color("#e6b04a"), tip: new Color("#f0c462") };
 /** False color for the UV-absorbing basal region of the upper ray surface (see docs/research/bee-vision.md). */
 const UV_ABSORBING = new Color("#4d436b");

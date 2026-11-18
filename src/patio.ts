@@ -154,9 +154,7 @@ function surfaceMaterial(id: SurfaceId): MeshStandardMaterial {
   return new MeshStandardMaterial({ map, bumpMap, bumpScale: surface.bumpScale, roughness: surface.roughness });
 }
 
-function curvedLeafGeometry(length: number, maxWidth: number, arch: number, curl: number): BufferGeometry {
-  const rows = 18;
-  const cols = 8;
+function curvedLeafGeometry(length: number, maxWidth: number, arch: number, curl: number, rows = 18, cols = 8): BufferGeometry {
   const positions: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];
@@ -247,6 +245,26 @@ function addLeaf(parent: Group, material: MeshStandardMaterial, length: number, 
   leaf.receiveShadow = true;
   parent.add(leaf);
   return leaf;
+}
+
+function addCanopyLeaf(parent: Group, material: MeshStandardMaterial, veinMaterial: MeshStandardMaterial, length: number, width: number, arch: number, pose: { x: number; y: number; z: number; yaw: number; pitch: number; roll?: number }): void {
+  const leaf = new Mesh(curvedLeafGeometry(length, width, arch, 0.08, 10, 4), material);
+  leaf.position.set(pose.x, pose.y, pose.z);
+  leaf.rotation.set(pose.pitch, pose.yaw, pose.roll ?? 0);
+  leaf.castShadow = false;
+  leaf.receiveShadow = true;
+  parent.add(leaf);
+
+  const points = Array.from({ length: 5 }, (_, index) => {
+    const along = index * 0.2;
+    const y = Math.sin(along * Math.PI * 0.78) * arch - along * along * (arch * 0.58);
+    return new Vector3(0, y + 0.006, along * length);
+  });
+  const vein = new Mesh(new TubeGeometry(new CatmullRomCurve3(points), 8, width * 0.018, 4, false), veinMaterial);
+  vein.position.copy(leaf.position);
+  vein.rotation.copy(leaf.rotation);
+  vein.castShadow = false;
+  parent.add(vein);
 }
 
 /** Places a shared modeled blade; `lift` raises the tip, then `yaw` turns the blade about the vertical. */
@@ -429,6 +447,7 @@ export function createPatio(): PatioScene {
   const canopy = new Group();
   const canopyLeaf = new MeshStandardMaterial({ color: '#718653', roughness: 0.88, side: DoubleSide, emissive: '#4b6037', emissiveIntensity: 0.7 });
   const canopyLight = new MeshStandardMaterial({ color: '#9aad73', roughness: 0.84, side: DoubleSide, emissive: '#647b49', emissiveIntensity: 0.52 });
+  const canopyVein = new MeshStandardMaterial({ color: '#52623b', roughness: 0.92 });
   const canopyStem = new MeshStandardMaterial({ color: '#4d5940', roughness: 0.96 });
   const archSpecs = [
     { x: -4.4, y: 3.15, z: 4.5, yaw: 1.18, length: 3.3, width: 0.58, roll: 0.08 },
@@ -437,9 +456,9 @@ export function createPatio(): PatioScene {
     { x: 2.05, y: 3.42, z: 4.35, yaw: -1.44, length: 2.35, width: 0.48, roll: -0.08 },
   ];
   for (const [index, spec] of archSpecs.entries()) {
-    addLeaf(canopy, index % 2 === 0 ? canopyLeaf : canopyLight, spec.length, spec.width, 0.42, {
+    addCanopyLeaf(canopy, index % 2 === 0 ? canopyLeaf : canopyLight, canopyVein, spec.length, spec.width, 0.42, {
       x: spec.x, y: spec.y, z: spec.z, yaw: spec.yaw, pitch: -0.08, roll: spec.roll,
-    }, false);
+    });
   }
   for (const [x, side] of [[-4.2, 1], [4.0, -1]] as const) {
     const branch = new Mesh(new TubeGeometry(new CatmullRomCurve3([
@@ -450,10 +469,10 @@ export function createPatio(): PatioScene {
     canopy.add(branch);
     for (let leaf = 0; leaf < 5; leaf++) {
       const level = leaf * 0.68 - 0.2;
-      addLeaf(canopy, leaf % 2 === 0 ? canopyLight : canopyLeaf, 1.65 + (leaf % 3) * 0.28, 0.43 + (leaf % 2) * 0.12, 0.3, {
+      addCanopyLeaf(canopy, leaf % 2 === 0 ? canopyLight : canopyLeaf, canopyVein, 1.65 + (leaf % 3) * 0.28, 0.43 + (leaf % 2) * 0.12, 0.3, {
         x: x + side * (0.14 + leaf * 0.13), y: -0.65 + level, z: 4.1 + leaf * 0.13,
         yaw: side * (0.8 + (leaf % 3) * 0.32), pitch: -0.62 + (leaf % 2) * 0.15, roll: side * 0.08,
-      }, false);
+      });
     }
   }
   root.add(canopy);

@@ -1,5 +1,14 @@
 # History
 
+## 2026-11-18: Refine canopy leaves and ray palette
+
+Added a low-resolution curved blade and central vein to the upper canopy.
+Disabled canopy shadows on the flower and pot after the first capture showed
+hard bands. Shifted the human ray base toward warm gold and kept the UV guide
+unchanged. Typecheck, build, browser suite, garden capture, and isolated
+specimen recapture pass in a Linux worktree. The browser suite reports no page
+errors. Not deployed.
+
 ## 2026-11-18: Rudbeckia in the garden
 
 Replaced the schematic flower with the accepted Rudbeckia head and basal broad

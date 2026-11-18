@@ -1,5 +1,13 @@
 # Decisions
 
+## 2026-11-18: Refine canopy leaves and human ray color
+
+Give the upper canopy a low-resolution curved blade and a central vein. Keep
+its shadows off the flower and pot, as in the earlier canopy pass. The smaller
+blade reduces the scene by about 2,000 triangles and 28 draw calls. Shift the
+human ray base from burnt orange to warm gold so it reads closer to the lesson's
+description of both regions as yellow. The UV guide colors stay unchanged.
+
 ## 2026-11-18: Use the authored Rudbeckia and broad leaf in the garden
 
 The garden flower is now the accepted specimen head, scaled ×32 onto a new
