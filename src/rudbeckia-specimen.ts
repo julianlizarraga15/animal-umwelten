@@ -198,8 +198,16 @@ type PetalSpec = {
 
 const PETAL_TOP = { base: new Color("#b8520c"), middle: new Color("#ec9d17"), tip: new Color("#f6bd36") };
 const PETAL_BACK = { base: new Color("#b08a2e"), middle: new Color("#e6b04a"), tip: new Color("#f0c462") };
+/** False color for the UV-absorbing basal region of the upper ray surface (see docs/research/bee-vision.md). */
+const UV_ABSORBING = new Color("#4d436b");
 
-function petalSample(spec: PetalSpec): RingSample {
+function uvGuide(u: number, across: number): number {
+  const edge = 0.45 - 0.07 * across * across;
+  return 1 - smoothstep(edge - 0.035, edge + 0.035, u);
+}
+
+/** With `guide`, the upper face shows the UV display encoding; the back never does. */
+function petalSample(spec: PetalSpec, guide = false): RingSample {
   const top = new Color();
   const back = new Color();
   return (u, theta, position, color) => {
@@ -222,6 +230,7 @@ function petalSample(spec: PetalSpec): RingSample {
     const target = side >= 0 ? top : back;
     target.lerpColors(palette.base, palette.middle, smoothstep(0.08, 0.4, u));
     target.lerp(palette.tip, smoothstep(0.5, 1, u));
+    if (guide && side >= 0) target.lerp(palette.tip, 1 - smoothstep(0.4, 0.6, u)).lerp(UV_ABSORBING, uvGuide(u, across));
     const streak = 1 - 0.16 * (0.5 + 0.5 * Math.cos(across * Math.PI * 9)) * smoothstep(0.1, 0.4, u);
     color.copy(target).multiplyScalar(streak * spec.hue);
   };
@@ -356,7 +365,10 @@ function createDisk(random: Random): Group {
   return disk;
 }
 
-function createHead(random: Random): Group {
+export type RudbeckiaHead = { readonly root: Group; setUvGuide(visible: boolean): void };
+
+/** Head centered on the disk, facing +y. `withUvGuide` adds the swappable UV encoding of the upper ray faces. */
+export function createRudbeckiaHead(random: Random, withUvGuide = false): RudbeckiaHead {
   const head = new Group();
   const petals: BufferGeometry[] = [];
   const petalHairs: Matrix4[] = [];
@@ -378,6 +390,11 @@ function createHead(random: Random): Group {
         hue: 0.9 + 0.14 * random(),
       };
       const geometry = ringSurface(48, 32, petalSample(spec));
+      if (withUvGuide) {
+        const guided = ringSurface(48, 32, petalSample(spec, true));
+        geometry.setAttribute("colorUv", guided.getAttribute("color"));
+        guided.dispose();
+      }
       const azimuth = whorl.offset + (index / whorl.count) * Math.PI * 2 + (random() - 0.5) * 0.22;
       geometry.applyMatrix4(bladeMatrix(azimuth, whorl.pitch + (random() - 0.5) * 0.14, DISK_RADIUS * 0.72, whorl.height));
       scatterHairs(geometry, {
@@ -424,7 +441,16 @@ function createHead(random: Random): Group {
   receptacle.position.y = -0.0045;
   head.add(petalMesh, bractMesh, receptacle, createDisk(random));
   head.add(hairMesh(petalHairs, "#f3d48a"), hairMesh(bractHairs, "#d2d8bb"));
-  return head;
+  const petalGeometry = petalMesh.geometry;
+  const humanColors = petalGeometry.getAttribute("color");
+  const uvColors = petalGeometry.getAttribute("colorUv");
+  return {
+    root: head,
+    setUvGuide(visible) {
+      if (!uvColors) throw new Error("Rudbeckia head was built without the UV guide.");
+      petalGeometry.setAttribute("color", visible ? uvColors : humanColors);
+    },
+  };
 }
 
 function createStem(head: Group, random: Random): Group {
@@ -473,8 +499,11 @@ function createStem(head: Group, random: Random): Group {
   return stem;
 }
 
-function createLeaf(random: Random): Group {
-  const leaf = new Group();
+/**
+ * Broad leaf blade, 0.19 m long: x runs base to tip, y is up toward the adaxial face.
+ * `hairDensity` scales the 7,100 surface hairs.
+ */
+export function createBroadLeaf(random: Random, hairDensity = 1): Mesh {
   const length = 0.19;
   const geometry = ringSurface(150, 240, leafSample(length, 0.098, random));
   const blade = new Mesh(
@@ -491,11 +520,18 @@ function createLeaf(random: Random): Group {
   );
   const hairs: Matrix4[] = [];
   const rim = (theta: number) => Math.abs(Math.sin(theta)) < 0.3;
-  scatterHairs(geometry, { count: 1600, length: 0.0012, lean: 0.5, accept: (_u, theta) => rim(theta) }, random, hairs);
-  scatterHairs(geometry, { count: 3500, length: 0.001, lean: 1.1, accept: (_u, theta) => Math.sin(theta) > 0.3 }, random, hairs);
-  scatterHairs(geometry, { count: 2000, length: 0.0009, lean: 1.1, accept: (_u, theta) => Math.sin(theta) < -0.3 }, random, hairs);
-  blade.add(hairMesh(hairs, "#d3dccd"));
+  const count = (full: number) => Math.round(full * hairDensity);
+  scatterHairs(geometry, { count: count(1600), length: 0.0012, lean: 0.5, accept: (_u, theta) => rim(theta) }, random, hairs);
+  scatterHairs(geometry, { count: count(3500), length: 0.001, lean: 1.1, accept: (_u, theta) => Math.sin(theta) > 0.3 }, random, hairs);
+  scatterHairs(geometry, { count: count(2000), length: 0.0009, lean: 1.1, accept: (_u, theta) => Math.sin(theta) < -0.3 }, random, hairs);
+  if (hairs.length > 0) blade.add(hairMesh(hairs, "#d3dccd"));
   blade.rotation.x = -Math.PI / 2;
+  return blade;
+}
+
+function createLeaf(random: Random): Group {
+  const leaf = new Group();
+  const blade = createBroadLeaf(random);
   blade.position.set(0.018, 0.006, 0);
   const petiole = new Mesh(
     new TubeGeometry(new CatmullRomCurve3([
@@ -516,7 +552,7 @@ function createLeaf(random: Random): Group {
 export function createRudbeckiaSpecimen(): Group {
   const random = randomStream("rudbeckia-specimen");
   const specimen = new Group();
-  const head = createHead(random);
+  const head = createRudbeckiaHead(random).root;
   head.position.copy(HEAD_POSITION);
   head.rotation.set(HEAD_TILT.x, 0, HEAD_TILT.z);
   specimen.add(head);

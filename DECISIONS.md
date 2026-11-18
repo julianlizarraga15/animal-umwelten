@@ -1,5 +1,20 @@
 # Decisions
 
+## 2026-11-18: Use the authored Rudbeckia and broad leaf in the garden
+
+The garden flower is now the accepted specimen head, scaled ×32 onto a new
+stem, with three basal broad leaves in the pot. The UV view swaps a second
+vertex-color set on the rays. Only upper faces change: a violet basal guide
+and yellow distal region. Backs keep human colors, as before (Schlangen et
+al., 2009; Horth et al., 2014). The flat frame and collar leaves gave way to
+modeled broad leaves in the lower corners.
+
+Garden leaves keep 25% of the specimen's 7,100 hairs per leaf. On an Intel
+UHD GPU (hardware WebGL, 1456×819), frame time with and without hairs stayed
+within run-to-run noise (8.5–11 ms overview). At garden distance, 25% keeps the fuzzy rim that full density
+gives. Removing hairs leaves a plastic edge. The reduction saves about 300k
+triangles. Most of the added cost is the leaf blades themselves.
+
 ## 2026-11-18: Author the hero flower and leaf in code
 
 Stop searching catalogs. Free CC0 plants were either alpha-masked shells or

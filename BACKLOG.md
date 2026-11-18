@@ -8,7 +8,13 @@
   The 2026-11-18 specimen test rejected Poly Haven `potted_plant_02` and the
   Grab3D sunflower. After a material pass, the authored Rudbeckia and leaf
   hold beside the concept in close and oblique views. The user accepted them
-  on 2026-11-18. Garden integration is next.
+  on 2026-11-18 and they now sit in the garden.
+- Get a visual verdict on the integrated garden beside the concept.
+- Replace the flat upper canopy leaves with broad leaves. Each modeled blade
+  adds about 72k triangles, so a lower-resolution blade may be needed.
+- The human view shows an orange ray base. Horth et al. describe both regions
+  as yellow to humans. Decide whether to soften it for the lesson.
+- At the reverse inspection pose, petal-back hairs read as isolated thorns.
 
 
 ## Next experiment
@@ -21,8 +27,8 @@
   and the difference between a visible signal encoding and animal vision.
 - Evaluate whether the patio context improves understanding of the floral contrast.
 - Validate the interaction on a physical mobile device and another browser.
-- Measure approach frame timing with hardware WebGL. SwiftShader captures do not
-  establish mobile rendering performance.
+- Measure frame timing on a phone. Desktop Intel UHD timing exists
+  (`scripts/capture-garden.mjs --gpu`); it does not establish mobile performance.
 - Revise the lesson or encoding if the comparison is unclear before adding scope.
 
 ## Later candidates

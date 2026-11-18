@@ -1,5 +1,12 @@
 # History
 
+## 2026-11-18: Rudbeckia in the garden
+
+Replaced the schematic flower with the accepted Rudbeckia head and basal broad
+leaves. The bee UV guide stays on the upper ray faces. Modeled broad leaves
+frame the lower corners. Typecheck, build, and the browser suite passed. The
+first hardware-WebGL timing was taken on an Intel UHD GPU. Not deployed.
+
 ## 2026-11-18: Authored Rudbeckia specimen
 
 Modeled a Rudbeckia head and broad leaf in code: thick overlapping rays, a

@@ -8,6 +8,7 @@ import {
   colorTexture, mixRgb, randomStream, reliefTexture, rgb, smoothstep, tileableNoise,
   type Field, type Random, type Raster, type Rgb, type Rgba,
 } from './procedural';
+import { createBroadLeaf } from './rudbeckia-specimen';
 
 type Surface = {
   readonly raster: Raster;
@@ -43,6 +44,7 @@ const POT = {
   outer: [[0.78, -2.2], [0.8, -2.14], [1.1, -0.84], [1.19, -0.82], [1.2, -0.62], [1.185, -0.575], [1.15, -0.56]],
   inner: [[1.1, -0.56], [1.07, -0.575], [1.055, -0.62], [1.0, -0.86]],
 } as const;
+const FOREGROUND_HAIR_DENSITY = 0.25;
 const lipT = (POT.outer.length - 1) / (POT.outer.length + POT.inner.length - 1);
 
 const SURFACES = {
@@ -247,6 +249,22 @@ function addLeaf(parent: Group, material: MeshStandardMaterial, length: number, 
   return leaf;
 }
 
+/** Places a shared modeled blade; `lift` raises the tip, then `yaw` turns the blade about the vertical. */
+function addBroadLeaf(parent: Group, blade: Mesh, scale: number, pose: { x: number; y: number; z: number; yaw: number; lift: number }): void {
+  const leaf = blade.clone();
+  leaf.traverse((child) => {
+    if (!(child instanceof Mesh)) return;
+    child.castShadow = child.userData.hair !== true;
+    child.receiveShadow = true;
+  });
+  const holder = new Group();
+  holder.add(leaf);
+  holder.position.set(pose.x, pose.y, pose.z);
+  holder.rotation.set(0, pose.yaw, pose.lift);
+  holder.scale.setScalar(scale);
+  parent.add(holder);
+}
+
 function plantSpike(parent: Group, random: Random, origin: Vector3, scale: number): void {
   const stem = new Mesh(
     new TubeGeometry(new CatmullRomCurve3([
@@ -392,16 +410,20 @@ export function createPatio(): PatioScene {
   tileSprout.position.set(0.95, -2.16, 1.55);
   root.add(tileSprout);
 
+  const broadLeaves = [
+    createBroadLeaf(randomStream('foreground-leaf-a'), FOREGROUND_HAIR_DENSITY),
+    createBroadLeaf(randomStream('foreground-leaf-b'), FOREGROUND_HAIR_DENSITY),
+  ];
   const leftFrame = new Group();
-  leftFrame.position.set(-0.55, 0.85, 4.55);
-  addLeaf(leftFrame, sunLeaf, 1.7, 0.48, 0.42, { x: 0, y: 0, z: 0, yaw: 0.7, pitch: -0.15, roll: 0.45 });
-  addLeaf(leftFrame, shadeLeaf, 1.35, 0.36, 0.3, { x: 0.05, y: -0.15, z: 0.25, yaw: 1.5, pitch: 0.1, roll: -0.2 });
+  leftFrame.position.set(-2.75, -1.05, 5.5);
+  addBroadLeaf(leftFrame, broadLeaves[0], 13.5, { x: 0, y: 0, z: 0, yaw: 0.3, lift: 0.58 });
+  addBroadLeaf(leftFrame, broadLeaves[1], 12, { x: 0.25, y: -0.3, z: 0.55, yaw: -0.1, lift: 0.22 });
   root.add(leftFrame);
 
   const rightFrame = new Group();
-  rightFrame.position.set(2.85, 0.55, 4.7);
-  addLeaf(rightFrame, sunLeaf, 1.55, 0.42, 0.36, { x: 0, y: 0, z: 0, yaw: -2.4, pitch: -0.25, roll: -0.35 });
-  addLeaf(rightFrame, shadeLeaf, 1.2, 0.32, 0.24, { x: -0.15, y: 0.1, z: 0.1, yaw: -1.6, pitch: 0.05, roll: 0.2 });
+  rightFrame.position.set(3.2, -0.75, 5.5);
+  addBroadLeaf(rightFrame, broadLeaves[1], 10, { x: 0, y: 0, z: 0, yaw: Math.PI + 0.25, lift: 0.36 });
+  addBroadLeaf(rightFrame, broadLeaves[0], 8, { x: 0.1, y: 0.1, z: -0.45, yaw: Math.PI - 0.35, lift: 0.5 });
   root.add(rightFrame);
 
   const canopy = new Group();
@@ -469,13 +491,6 @@ export function createPatio(): PatioScene {
   }
   root.add(wallPlants);
   root.add(climbers);
-
-  const collar = new Group();
-  collar.position.set(FLOWER_BED.x, -0.4, FLOWER_BED.z);
-  addLeaf(collar, sunLeaf, 1.35, 0.38, 0.55, { x: 0.15, y: 0, z: 0.35, yaw: 0.4, pitch: -0.9, roll: 0.1 }, true);
-  addLeaf(collar, shadeLeaf, 1.2, 0.32, 0.4, { x: -0.45, y: 0.1, z: 0.1, yaw: 2.2, pitch: -0.7, roll: -0.2 }, true);
-  addLeaf(collar, sunLeaf, 1.05, 0.28, 0.35, { x: 0.35, y: 0.05, z: -0.25, yaw: -1.1, pitch: -0.8, roll: 0.15 }, true);
-  root.add(collar);
 
   const shrubs = new Group();
   const shrubRandom = randomStream('shrubs');

@@ -1,70 +1,66 @@
 # Project status
 
-Handoff updated: 2026-11-18 (authored Rudbeckia specimen)
+Handoff updated: 2026-11-18 (Rudbeckia integrated into the garden)
 
 ## Current application
 
 Umwelt Explorer offers an afternoon garden with bounded bee UV contrast and
-spider vibration-direction lessons. The interface is Spanish. The schematic
-Rudbeckia and horizontal web do not claim literal animal subjective experience.
-The main application remains below the selected garden concept's graphical bar.
+spider vibration-direction lessons. The interface is Spanish. Renderings do
+not claim literal animal subjective experience.
 
-The existing Three.js application fills the viewport and uses a scientific lesson
-dialog. `src/patio.ts` owns surroundings, `src/flower.ts` owns flower geometry,
-and `src/main.ts` connects navigation. Ambient motion remains off. Those garden
-modules were not changed in the latest model test.
+The garden flower is now the accepted authored Rudbeckia. `src/flower.ts`
+scales the head from `src/rudbeckia-specimen.ts` (×32) onto a new stem, adds
+three basal broad leaves in the pot, and keeps the bee. The UV view swaps a
+second vertex-color set on the rays. It changes only the upper faces: violet
+basal guide, yellow distal region. Petal backs keep human colors.
+`src/patio.ts` replaces the flat frame and flower-collar leaves with modeled
+broad leaves in the lower corners, following
+`docs/art-direction/jardin-de-la-tarde.png`. The upper canopy is still flat
+schematic leaves. `src/main.ts` (afternoon light) and the spider modules are
+unchanged.
 
-## Graphical quality experiments
+The isolated page `/experiments/botanical-specimen/` is unchanged. Its
+recaptures are pixel-identical to the accepted ones. The specimen module now
+exports `createRudbeckiaHead` and `createBroadLeaf` without altering the
+specimen's random sequence.
 
-The procedural flower study and the Poly Haven Gazania import both failed the
-reference. Gazania improved leaf contours and surface detail, then an independent
-review rejected thin surfaces, dark backs, hard shadows, and framing. Evidence
-remains in `test-results/patio/graphics-study-authored/`. Its implementation
-worktree is no longer available on this machine.
+## Cost and hairs
 
-The isolated page `/experiments/botanical-specimen/` now opens on a
-Rudbeckia and broad leaf modeled in `src/rudbeckia-specimen.ts`. Rays, phyllaries,
-and the leaf are closed surfaces with real thickness. The leaf has a midrib
-fold, sunken veins on top, raised ribs below, and a pale margin. The disk is
-a dome of 300 florets. The page keeps the garden's afternoon rig unchanged.
-The CC0 syngonium and sunflower stay selectable for comparison and remain
-rejected. Catalog search is closed.
+Garden leaves keep 25% of the specimen's 7,100 hairs per leaf (`LEAF_HAIR_DENSITY`
+in `flower.ts`, `FOREGROUND_HAIR_DENSITY` in `patio.ts`). Hardware WebGL on
+an Intel UHD GPU, 1456×819, median of look-around renders:
 
-A material pass added bump-mapped ray striations, a tinted transmitted-light
-term, about 8,000 instanced hairs, and a reticulate leaf texture. Captures
-beside `docs/art-direction/jardin-de-la-tarde.png` now pass on form and
-material in close and oblique views. In overview, the leaf seen from above
-still reads as a sheet, and the petiole joint is awkward. On 2026-11-18 the
-user checked the page and accepted the specimen as good enough for now. The verdict and botanical basis are in
-`docs/art-direction/botanical-model-review.md`. Ray and leaf widths are wider
-than documented for *R. hirta*, following the concept. Nothing entered the
-garden.
+- Previous commit 60b14d6: overview 6.8–8.3 ms, flower 6.5–7 ms, 162k triangles.
+- Now: overview 8.5–11 ms, flower 6–6.9 ms, 1.35M triangles.
 
-The page runs on the local Vite server at
-`http://localhost:5173/experiments/botanical-specimen/`. This is a development
-server, not a deployment.
+Removing hairs entirely did not change frame time beyond noise. Most added
+cost is the seven 72k-triangle leaf blades, including their shadow pass. The 25% density keeps
+the fuzzy rim that full density gives. Captures and JSON are in
+`test-results/patio/garden-rudbeckia/`, including `garden-vs-reference-*.png`
+and `hair-density-crop-0-025-1.png`.
 
 ## Validation
 
-On 2026-11-18, `npm run typecheck` and `npm run build` passed. The build still
-shows the existing chunk-size warning.
-`node scripts/capture-botanical-specimen.mjs` reported no page errors and saved
-overview, close, and oblique views, plus side-by-side frames with the concept
-(`rudbeckia-vs-reference-*.png`). Pass `--catalog` to recapture the two CC0
-models. The captures used SwiftShader software rendering. The garden browser
-suite was not rerun because no garden module changed. No physical-device
-performance or deployment validation is claimed.
+On 2026-11-18: `npm run typecheck`, `npm run build`, and `npm run check:browser`
+passed (SwiftShader), including the UV toggle and reverse-pose checks (no violet
+on petal backs). The build keeps the existing chunk-size warning.
+`node scripts/capture-garden.mjs [--gpu]` (after a build) captured the garden,
+flower views, and timings without page errors. No phone, other-browser, or
+deployment validation.
+
+## Open questions
+
+- The garden composition has no visual verdict yet beside the concept.
+- The human view shows an orange ray base. The lesson says both regions look
+  yellow to humans (Horth et al., 2014).
+- At the reverse inspection pose, petal-back hairs read as isolated thorns.
 
 ## Next actions
 
-1. Integrate the accepted specimen into the garden. Keep the bee UV lesson
-   on the upper petal surfaces.
-2. Measure the frame cost of the hairs with hardware WebGL, and reduce the
-   hair count if needed.
-3. Optional polish: the leaf's overview read and the petiole joint.
+1. Get the user's visual verdict on `garden-vs-reference-gpu.png`.
+2. Replace the flat upper canopy leaves with broad leaves, probably with a
+   lower-resolution blade to contain triangles.
+3. Decide whether to soften the orange ray base in the human view.
 
-Plans are `docs/plans/20261118-authored-rudbeckia.md`,
-`docs/plans/20261118-hero-botanical-model.md`, and the earlier
-graphics studies. The broader garden plan remains
-`docs/plans/20261117-garden-art-quality.md`. The specimen work is committed
-locally. Nothing was pushed or deployed.
+Plan: `docs/plans/20261118-garden-rudbeckia.md`. Work is uncommitted on
+`main` at 60b14d6. Nothing was pushed or deployed.
