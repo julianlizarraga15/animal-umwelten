@@ -1,5 +1,14 @@
 # History
 
+## 2026-11-18: Authored Rudbeckia specimen
+
+Modeled a Rudbeckia head and broad leaf in code: thick overlapping rays, a
+floret-covered dark disk, phyllaries, a hairy stem, and a folded, veined leaf
+with a visible edge. A material pass added ray striations, transmitted-light
+glow, instanced hairs, and leaf texture. Captures beside the concept pass in
+close and oblique views. The specimen stays in the isolated page. No garden
+integration, commit, or deployment.
+
 ## 2026-11-18: Isolated flower and leaf model test
 
 Compared a Poly Haven syngonium and a CC0 Grab3D sunflower in a specimen page,

@@ -6,7 +6,9 @@
   Establish composition and hero-asset quality before more animation.
   Earlier garden passes are implementation history, not visual acceptance.
   The 2026-11-18 specimen test rejected Poly Haven `potted_plant_02` and the
-  Grab3D sunflower. The garden still needs an authored flower and broad leaf.
+  Grab3D sunflower. After a material pass, the authored Rudbeckia and leaf
+  hold beside the concept in close and oblique views. The user accepted them
+  on 2026-11-18. Garden integration is next.
 
 
 ## Next experiment

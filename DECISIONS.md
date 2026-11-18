@@ -1,5 +1,19 @@
 # Decisions
 
+## 2026-11-18: Author the hero flower and leaf in code
+
+Stop searching catalogs. Free CC0 plants were either alpha-masked shells or
+low-detail game props. Build the Rudbeckia head and broad leaf procedurally
+as closed surfaces with real thickness, and review them in the isolated
+specimen page under the garden's unchanged afternoon rig. A tinted
+translucency term adds sunlight transmitted through petals and leaves.
+The term ignores each tissue's own shadow, so a back face still glows.
+Fine hairs are instanced cones that do not cast shadows.
+
+Ray and leaf widths follow the concept, not Flora of North America. The
+review note records both. See the
+[botanical model review](docs/art-direction/botanical-model-review.md).
+
 ## 2026-11-18: Keep the tested flower and leaf models out of the garden
 
 Poly Haven `potted_plant_02` and the Grab3D sunflower were loaded in an isolated

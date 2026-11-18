@@ -19,10 +19,13 @@ import {
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { createRudbeckiaSpecimen, RUDBECKIA_FRAMES } from "./rudbeckia-specimen";
 
-type SpecimenId = "syngonium" | "sunflower";
+type SpecimenId = "rudbeckia" | "syngonium" | "sunflower";
 type LightId = "neutral" | "afternoon";
 type ViewId = "overview" | "close" | "oblique";
+
+const RUDBECKIA_LABEL = "Rudbeckia modelada para esta muestra. Grosor exagerado a propósito; no es la experiencia de una abeja.";
 
 const SPECIMENS = {
   syngonium: {
@@ -33,7 +36,7 @@ const SPECIMENS = {
     url: "/assets/sunflower-grab3d/sunflower.glb",
     label: "Girasol, Grab3D, CC0. Pétalos y hojas con volumen. No es la flor de la lección.",
   },
-} as const satisfies Record<SpecimenId, { url: string; label: string }>;
+} as const satisfies Record<Exclude<SpecimenId, "rudbeckia">, { url: string; label: string }>;
 
 const LIGHTS = {
   neutral: { clear: 0xb7aea4, sky: 0xf4f1ec, ground: 0x8d8680, fill: 1.15, sun: 0xfff6ee, intensity: 2.8, exposure: 1 },
@@ -80,7 +83,7 @@ scene.add(ground);
 
 const loader = new GLTFLoader();
 let specimen: Object3D | null = null;
-let specimenId: SpecimenId = "syngonium";
+let specimenId: SpecimenId = "rudbeckia";
 let lightId: LightId = "afternoon";
 let viewId: ViewId = "overview";
 let request = 0;
@@ -139,6 +142,12 @@ function frame(id: ViewId): void {
   } else if (id !== "overview") {
     assertNever(id);
   }
+  if (specimenId === "rudbeckia" && id !== "overview") {
+    const authored = RUDBECKIA_FRAMES[id];
+    target = authored.target.clone();
+    direction = authored.direction.clone();
+    distance = authored.distance;
+  }
   camera.position.copy(target).addScaledVector(direction.normalize(), distance);
   camera.near = Math.max(0.01, distance / 80);
   camera.far = distance * 30;
@@ -177,31 +186,48 @@ function renderSoon(): void {
   requestAnimationFrame(loop);
 }
 
+async function loadSpecimen(id: SpecimenId): Promise<{ root: Object3D; label: string }> {
+  switch (id) {
+    case "rudbeckia":
+      return { root: createRudbeckiaSpecimen(), label: RUDBECKIA_LABEL };
+    case "syngonium":
+    case "sunflower": {
+      const gltf = await loader.loadAsync(SPECIMENS[id].url);
+      gltf.scene.traverse((child) => {
+        if (!(child instanceof Mesh)) return;
+        child.castShadow = true;
+        child.receiveShadow = true;
+      });
+      return { root: gltf.scene, label: SPECIMENS[id].label };
+    }
+    default:
+      return assertNever(id);
+  }
+}
+
 async function showSpecimen(id: SpecimenId): Promise<void> {
   const current = ++request;
   status.textContent = "Cargando modelo…";
-  let gltf;
+  let loaded;
   try {
-    gltf = await loader.loadAsync(SPECIMENS[id].url);
+    loaded = await loadSpecimen(id);
   } catch (error) {
     if (current !== request) return;
     status.textContent = `No se pudo cargar el modelo: ${error instanceof Error ? error.message : "error desconocido"}`;
     return;
   }
-  if (current !== request) return;
+  if (current !== request) {
+    disposeObject(loaded.root);
+    return;
+  }
   if (specimen) {
     scene.remove(specimen);
     disposeObject(specimen);
   }
-  specimen = gltf.scene;
-  specimen.traverse((child) => {
-    if (!(child instanceof Mesh)) return;
-    child.castShadow = true;
-    child.receiveShadow = true;
-  });
+  specimen = loaded.root;
   scene.add(specimen);
   frame(viewId);
-  status.textContent = SPECIMENS[id].label;
+  status.textContent = loaded.label;
   renderSoon();
 }
 
@@ -214,7 +240,7 @@ function selectButton(selector: string, value: string): void {
 document.querySelectorAll<HTMLButtonElement>("[data-specimen]").forEach((button) => {
   button.addEventListener("click", () => {
     const id = button.dataset.specimen;
-    if (id !== "syngonium" && id !== "sunflower") return;
+    if (id !== "rudbeckia" && id !== "syngonium" && id !== "sunflower") return;
     specimenId = id;
     selectButton("[data-specimen]", id);
     void showSpecimen(id);

@@ -1,6 +1,6 @@
 # Project status
 
-Handoff updated: 2026-11-18
+Handoff updated: 2026-11-18 (authored Rudbeckia specimen)
 
 ## Current application
 
@@ -22,42 +22,49 @@ review rejected thin surfaces, dark backs, hard shadows, and framing. Evidence
 remains in `test-results/patio/graphics-study-authored/`. Its implementation
 worktree is no longer available on this machine.
 
-A new isolated page at `/experiments/botanical-specimen/` compares two CC0
-candidates under the garden's afternoon light. Poly Haven `potted_plant_02`
-is a broad-leaf syngonium in a weathered terracotta pot. The Grab3D sunflower
-has solid petals, a visible flower back, and simple leaves. Catalog review
-also ruled out other Poly Haven plants as alpha-masked shells and other cozy
-kits as low-detail props. No paid library was purchased.
+The isolated page `/experiments/botanical-specimen/` now opens on a
+Rudbeckia and broad leaf modeled in `src/rudbeckia-specimen.ts`. Rays, phyllaries,
+and the leaf are closed surfaces with real thickness. The leaf has a midrib
+fold, sunken veins on top, raised ribs below, and a pale margin. The disk is
+a dome of 300 florets. The page keeps the garden's afternoon rig unchanged.
+The CC0 syngonium and sunflower stay selectable for comparison and remain
+rejected. Catalog search is closed.
 
-Chromium captures in `test-results/patio/botanical-specimen/` show the
-syngonium leaves as thin glossy cards with dark backs and no flower. The
-sunflower holds its shape from the side but stays smooth and game-like.
-The verdict is in `docs/art-direction/botanical-model-review.md`. Neither
-model enters the garden.
+A material pass added bump-mapped ray striations, a tinted transmitted-light
+term, about 8,000 instanced hairs, and a reticulate leaf texture. Captures
+beside `docs/art-direction/jardin-de-la-tarde.png` now pass on form and
+material in close and oblique views. In overview, the leaf seen from above
+still reads as a sheet, and the petiole joint is awkward. On 2026-11-18 the
+user checked the page and accepted the specimen as good enough for now. The verdict and botanical basis are in
+`docs/art-direction/botanical-model-review.md`. Ray and leaf widths are wider
+than documented for *R. hirta*, following the concept. Nothing entered the
+garden.
 
-The page is served by the existing local Vite server at
+The page runs on the local Vite server at
 `http://localhost:5173/experiments/botanical-specimen/`. This is a development
 server, not a deployment.
 
 ## Validation
 
-On 2026-11-18 the specimen page typechecked with the project compiler. The
-capture script reported no page errors and saved overview, close, and oblique
-views for both models, plus a portrait frame of the sunflower. The garden
-browser suite was not rerun because the garden modules did not change.
-Software rendering was used for the saved captures. No physical-device
+On 2026-11-18, `npm run typecheck` and `npm run build` passed. The build still
+shows the existing chunk-size warning.
+`node scripts/capture-botanical-specimen.mjs` reported no page errors and saved
+overview, close, and oblique views, plus side-by-side frames with the concept
+(`rudbeckia-vs-reference-*.png`). Pass `--catalog` to recapture the two CC0
+models. The captures used SwiftShader software rendering. The garden browser
+suite was not rerun because no garden module changed. No physical-device
 performance or deployment validation is claimed.
 
 ## Next actions
 
-1. Author or obtain one hero flower and one broad leaf whose geometry stays
-   thick in a close oblique view and whose material approaches the concept.
-   Another free photogrammetry plant or low-poly kit does not answer that.
-2. Review that specimen in the isolated page before any garden integration.
-3. Preserve the scientific interactions when an accepted asset eventually
-   enters the garden.
+1. Integrate the accepted specimen into the garden. Keep the bee UV lesson
+   on the upper petal surfaces.
+2. Measure the frame cost of the hairs with hardware WebGL, and reduce the
+   hair count if needed.
+3. Optional polish: the leaf's overview read and the petiole joint.
 
-Plans are `docs/plans/20261118-hero-botanical-model.md` and the earlier
+Plans are `docs/plans/20261118-authored-rudbeckia.md`,
+`docs/plans/20261118-hero-botanical-model.md`, and the earlier
 graphics studies. The broader garden plan remains
-`docs/plans/20261117-garden-art-quality.md`. No commit, push, or deployment
-was made.
+`docs/plans/20261117-garden-art-quality.md`. The specimen work is committed
+locally. Nothing was pushed or deployed.
