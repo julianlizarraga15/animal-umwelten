@@ -1,5 +1,16 @@
 # Decisions
 
+## 2026-11-18: Keep the tested flower and leaf models out of the garden
+
+Poly Haven `potted_plant_02` and the Grab3D sunflower were loaded in an isolated
+specimen page and captured under afternoon light. The syngonium has a usable
+terracotta pot and broad leaves, but the leaves are thin glossy shells and
+there is no flower. The sunflower has solid petals and a visible back, but the
+head and leaves stay simple and smooth. Neither approaches
+`docs/art-direction/jardin-de-la-tarde.png`. They remain available for
+comparison and are not part of the garden scene. See the
+[botanical model review](docs/art-direction/botanical-model-review.md).
+
 ## 2026-11-17: Require visual acceptance of the garden frame
 
 The user finds the implemented renewal substantially short of the selected
@@ -202,3 +213,10 @@ record model preferences in `AGENTS.md`.
 Avoid copying hardware operations, deployment instructions, credentials, or
 historical project state. No rendering stack or application architecture is
 selected yet.
+
+## 2026-11-18: Keep authored-asset evidence separate from the lesson
+
+Use the CC0 Gazania study to evaluate imported geometry and texture maps. It
+improves botanical detail but remains below the reference and is not Rudbeckia.
+Keep it isolated from the scientific lesson until a suitable hero asset and
+lighting pass visual review. See the authored-asset study review.

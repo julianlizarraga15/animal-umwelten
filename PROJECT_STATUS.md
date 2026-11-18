@@ -1,75 +1,63 @@
 # Project status
 
-Handoff updated: 2026-11-17
+Handoff updated: 2026-11-18
 
-## Goal and current state
+## Current application
 
-Umwelt Explorer lets visitors explore one afternoon garden and compare two
-bounded animal-relevant signals. A schematic *Rudbeckia hirta* flower carries a
-bee UV contrast encoding. A horizontal spider web offers a vibration-direction
-interaction inspired by research on *Uloborus diversus*. The interface is in
-Spanish. Neither representation claims literal animal subjective experience.
+Umwelt Explorer offers an afternoon garden with bounded bee UV contrast and
+spider vibration-direction lessons. The interface is Spanish. The schematic
+Rudbeckia and horizontal web do not claim literal animal subjective experience.
+The main application remains below the selected garden concept's graphical bar.
 
-The current implementation fills the viewport with the garden and overlays
-navigation and representation controls. Scientific lessons open in a modal
-drawer. The opening uses human-reference mode. Layered procedural planting,
-a tilted flower head, a path, house, and bee character are implemented.
+The existing Three.js application fills the viewport and uses a scientific lesson
+dialog. `src/patio.ts` owns surroundings, `src/flower.ts` owns flower geometry,
+and `src/main.ts` connects navigation. Ambient motion remains off. Those garden
+modules were not changed in the latest model test.
 
-This is an intermediate visual iteration. The latest screenshot still shows
-foreground leaves obscuring the flower, flat/repetitive vegetation, and large
-empty background areas. It does not meet the selected concept's artistic bar.
-The user requested committing and pushing the current changes to `origin/main`.
+## Graphical quality experiments
 
-## Implemented changes
+The procedural flower study and the Poly Haven Gazania import both failed the
+reference. Gazania improved leaf contours and surface detail, then an independent
+review rejected thin surfaces, dark backs, hard shadows, and framing. Evidence
+remains in `test-results/patio/graphics-study-authored/`. Its implementation
+worktree is no longer available on this machine.
 
-- `src/patio.ts` owns garden placement, path, house, pots, and planting.
-- `src/flower.ts` owns remodeled flower geometry and bounded bee arrival.
-- `src/main.ts`, `index.html`, and `src/style.css` integrate responsive camera
-  framing, full-viewport controls, and the scientific lesson dialog.
-- Browser checks cover the revised layout, dialog, initial human mode, scene
-  hits, and existing flower/web behavior. Several screenshot comparisons now
-  use a pixel-difference tolerance rather than exact equality; they do not
-  establish exact render equality or artistic quality.
-- Plans, concept images, the independent art review, and style sheet are saved.
+A new isolated page at `/experiments/botanical-specimen/` compares two CC0
+candidates under the garden's afternoon light. Poly Haven `potted_plant_02`
+is a broad-leaf syngonium in a weathered terracotta pot. The Grab3D sunflower
+has solid petals, a visible flower back, and simple leaves. Catalog review
+also ruled out other Poly Haven plants as alpha-masked shells and other cozy
+kits as low-detail props. No paid library was purchased.
+
+Chromium captures in `test-results/patio/botanical-specimen/` show the
+syngonium leaves as thin glossy cards with dark backs and no flower. The
+sunflower holds its shape from the side but stays smooth and game-like.
+The verdict is in `docs/art-direction/botanical-model-review.md`. Neither
+model enters the garden.
+
+The page is served by the existing local Vite server at
+`http://localhost:5173/experiments/botanical-specimen/`. This is a development
+server, not a deployment.
 
 ## Validation
 
-On 2026-11-17, typecheck, production build, and `npm run check:browser` passed
-on Linux, Node v22.23.1, Chromium with SwiftShader. Build retains the Three.js
-chunk-size advisory. Chromium required existing libraries through
-`LD_LIBRARY_PATH=/tmp/umwelt-browser-libs/extracted/usr/lib/x86_64-linux-gnu`.
-Browser checks covered desktop/mobile layout, lesson dialog, flower/web actions,
-reduced motion, context loss, fallback, and emulated touch. Evidence is saved in
-`test-results/patio/`. `git diff --cached --check` passed before commit.
-No physical-phone, hardware-performance, or deployment validation is claimed.
+On 2026-11-18 the specimen page typechecked with the project compiler. The
+capture script reported no page errors and saved overview, close, and oblique
+views for both models, plus a portrait frame of the sunflower. The garden
+browser suite was not rerun because the garden modules did not change.
+Software rendering was used for the saved captures. No physical-device
+performance or deployment validation is claimed.
 
-## Current visual target and next actions
+## Next actions
 
-The implemented garden remains visually below the selected concept. The user
-requested an ambitious new plan. `docs/plans/20261117-garden-art-quality.md`
-supersedes the prior renewal plan for future work. It requires full-viewport
-composition, enclosing vegetation, production-quality hero assets, and filtered
-light before additional animation. Functional completion is not visual acceptance.
+1. Author or obtain one hero flower and one broad leaf whose geometry stays
+   thick in a close oblique view and whose material approaches the concept.
+   Another free photogrammetry plant or low-poly kit does not answer that.
+2. Review that specimen in the isolated page before any garden integration.
+3. Preserve the scientific interactions when an accepted asset eventually
+   enters the garden.
 
-Next actions:
-
-1. Establish a shared style sheet and compare two compositions with clear hierarchy.
-2. Prove a flower-and-leaf study and material ensemble before expanding assets.
-3. Review three connected views independently against the concept and refine gaps.
-
-Ambient motion remains off in the current application. The new plan proposes a
-measured breeze with pause, reduced-motion, and hidden-page suspension; that
-policy and its tests have not been implemented. Asset authoring tools and target
-hardware remain unverified. No deployment or physical-device validation occurred.
-
-The visual review compared saved captures with the selected reference.
-See the validation section for current push checks.
-
-
-## Independent artistic review
-
-At the user's request, an independent agent reviewed the plan and both images.
-Seven accepted findings strengthen visual hierarchy, style coherence, detail
-rhythm, connected views, independent critique, asset capability, and interface
-states. Recorded in `docs/art-direction/art-quality-plan-review.md` and integrated
-into the plan. No application code or runtime validation changed in this turn.
+Plans are `docs/plans/20261118-hero-botanical-model.md` and the earlier
+graphics studies. The broader garden plan remains
+`docs/plans/20261117-garden-art-quality.md`. No commit, push, or deployment
+was made.

@@ -1,0 +1,12 @@
+{
+  "id": "sunflower",
+  "name": "Sunflower",
+  "role": "Solid petal and leaf specimen. Not the scientific lesson flower.",
+  "source": "https://grab3d.com/models/nature/sunflower/",
+  "author": "Grab3D",
+  "license": "CC0 1.0",
+  "licenseFile": "LICENSE.txt",
+  "files": "sunflower.glb",
+  "triangles": 8532,
+  "note": "Publisher states procedural geometry and textures. Generator scripts were written with an AI coding assistant; the publisher says no generative model produced the geometry or textures directly."
+}

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Muestra botánica — Umwelt</title>
+</head>
+<body>
+  <div id="viewport"></div>
+  <header>
+    <p>UMWELT / MUESTRA BOTÁNICA</p>
+    <h1>Flor y hojas</h1>
+  </header>
+  <p id="status" role="status">Cargando modelo…</p>
+  <div class="controls">
+    <fieldset>
+      <legend>Modelo</legend>
+      <button type="button" data-specimen="syngonium" aria-pressed="true">Syngonium · Poly Haven</button>
+      <button type="button" data-specimen="sunflower" aria-pressed="false">Girasol · Grab3D</button>
+    </fieldset>
+    <fieldset>
+      <legend>Luz</legend>
+      <button type="button" data-light="neutral" aria-pressed="false">Inspección neutra</button>
+      <button type="button" data-light="afternoon" aria-pressed="true">Tarde dorada</button>
+    </fieldset>
+    <fieldset>
+      <legend>Encadre</legend>
+      <button type="button" data-view="overview" aria-pressed="true">Vista general</button>
+      <button type="button" data-view="close" aria-pressed="false">Acercar</button>
+      <button type="button" data-view="oblique" aria-pressed="false">Oblicua</button>
+    </fieldset>
+  </div>
+  <script type="module" src="/src/botanical-specimen.ts"></script>
+</body>
+</html>

@@ -1,5 +1,12 @@
 # History
 
+## 2026-11-18: Isolated flower and leaf model test
+
+Compared a Poly Haven syngonium and a CC0 Grab3D sunflower in a specimen page,
+outside the garden. Browser captures rejected both for the afternoon concept:
+thin glossy leaves without a flower, or solid but simple petals and leaves.
+No garden integration, commit, or deployment.
+
 ## 2026-11-17: Full-viewport garden iteration
 
 Added overlay navigation, a modal scientific lesson, responsive camera framing,

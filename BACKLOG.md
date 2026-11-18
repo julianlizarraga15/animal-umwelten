@@ -5,13 +5,15 @@
 - Execute the [art-quality plan](docs/plans/20261117-garden-art-quality.md).
   Establish composition and hero-asset quality before more animation.
   Earlier garden passes are implementation history, not visual acceptance.
+  The 2026-11-18 specimen test rejected Poly Haven `potted_plant_02` and the
+  Grab3D sunflower. The garden still needs an authored flower and broad leaf.
 
 
 ## Next experiment
 
 - Fill the open back wall so the garden frame sits closer to the afternoon
-  concept, if that density is wanted. Procedural leaves are the current asset
-  path.
+  concept after graphical quality improves. Asset production is unresolved;
+  the authored Gazania study improves detail but fails the reference quality bar.
 
 - Evaluate whether visitors understand the spider's directional vibration cue
   and the difference between a visible signal encoding and animal vision.

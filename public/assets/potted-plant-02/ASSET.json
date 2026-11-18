@@ -1,0 +1,11 @@
+{
+  "id": "potted_plant_02",
+  "name": "Potted Plant 02",
+  "role": "Broad-leaf and terracotta specimen. Not the scientific lesson flower.",
+  "source": "https://polyhaven.com/a/potted_plant_02",
+  "author": "Rico Cilliers",
+  "license": "CC0 1.0",
+  "files": "glTF 2K color, normal, and roughness maps plus the shared mesh buffer",
+  "triangles": 69806,
+  "note": "Leaf material is alpha-masked. The published glTF assigns the pot material to the soil mesh."
+}
