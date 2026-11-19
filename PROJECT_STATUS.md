@@ -1,6 +1,6 @@
 # Project status
 
-Handoff updated: 2026-11-18 (canopy and ray palette refined)
+Handoff updated: 2026-11-19 (composition study ready)
 
 ## Current application
 
@@ -51,17 +51,30 @@ specimen recapture also had no page errors. SwiftShader timings do not measure
 device performance. The build keeps the existing chunk-size warning. No phone,
 other-browser, or deployment validation.
 
+Also on 2026-11-18: built two isolated composition prototypes in
+`/tmp/animal-umwelten-composition-prototype` and captured both at 1456x819 with
+Chromium and SwiftShader. Both reached the ready canvas with no page or console
+errors. Production source and UV rendering were not changed.
+
 ## Open questions
 
 - The garden composition has no user visual verdict yet beside the concept.
+- Two isolated visual treatments are captured beside the concept. Removing two
+  secondary pots and a tile sprout gives the Rudbeckia more room. A soft peach
+  sky glow makes the open upper background read more like sunset, though it may
+  be too bright when paired with other changes. Captures and recommendation are
+  in `docs/plans/20261118-garden-composition-and-sky.md`.
 - At the reverse inspection pose, petal-back hairs read as isolated thorns.
 
 ## Next actions
 
-1. Get the user's visual verdict on the new canopy and palette capture.
-2. Review the isolated petal-back hairs at the reverse pose.
-3. Continue the art-quality plan by filling the open back wall.
+1. Review the two composition captures beside the concept.
+2. Select the simplified background and decide whether to pair it with a softer
+   sky treatment.
+3. Implement the selected composition while leaving UV rendering and scientific
+   copy unchanged.
 
 Plans: `docs/plans/20261118-garden-rudbeckia.md` and
-`docs/plans/20261118-canopy-and-ray-palette.md`. Current changes are being
-committed on `main` after pushed commit 8b0d50b. Nothing is deployed.
+`docs/plans/20261118-canopy-and-ray-palette.md`. The existing application
+increment is on `main` at 385beeb. The composition study is documentation and
+evidence only. Nothing is deployed.

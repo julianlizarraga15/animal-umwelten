@@ -1,5 +1,15 @@
 # History
 
+## 2026-11-18: Composition and sky prototypes
+
+Captured two isolated garden treatments beside the afternoon concept at the
+same desktop view. Removing two secondary pots and a tile sprout gives the
+Rudbeckia more space. A soft peach glow makes the open background read as
+sunset, though it may be too bright when paired with other changes. Both
+variants built and captured in Chromium with SwiftShader without page errors.
+No production code or UV rendering changed. The next step is to review and
+select a treatment before implementation.
+
 ## 2026-11-18: Refine canopy leaves and ray palette
 
 Added a low-resolution curved blade and central vein to the upper canopy.
