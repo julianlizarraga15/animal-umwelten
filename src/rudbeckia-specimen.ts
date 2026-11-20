@@ -499,13 +499,17 @@ function createStem(head: Group, random: Random): Group {
   return stem;
 }
 
+export type LeafDetail = { rings: number; segments: number };
+
+const HERO_LEAF: LeafDetail = { rings: 150, segments: 240 };
+
 /**
  * Broad leaf blade, 0.19 m long: x runs base to tip, y is up toward the adaxial face.
- * `hairDensity` scales the 7,100 surface hairs.
+ * `hairDensity` scales the 7,100 surface hairs. `detail` defaults to the specimen resolution.
  */
-export function createBroadLeaf(random: Random, hairDensity = 1): Mesh {
+export function createBroadLeaf(random: Random, hairDensity = 1, detail: LeafDetail = HERO_LEAF): Mesh {
   const length = 0.19;
-  const geometry = ringSurface(150, 240, leafSample(length, 0.098, random));
+  const geometry = ringSurface(detail.rings, detail.segments, leafSample(length, 0.098, random));
   const blade = new Mesh(
     geometry,
     translucent(new MeshPhysicalMaterial({

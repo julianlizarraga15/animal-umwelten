@@ -1,5 +1,5 @@
 import {
-  BoxGeometry, BufferGeometry, Color, DoubleSide, Euler, Float32BufferAttribute, Group,
+  BoxGeometry, BufferGeometry, Color, Euler, Float32BufferAttribute, Group,
   IcosahedronGeometry, InstancedMesh, LatheGeometry, Matrix4, Mesh, MeshStandardMaterial,
   PlaneGeometry, Quaternion, TorusGeometry, TubeGeometry, CatmullRomCurve3, Vector2, Vector3,
 } from 'three';
@@ -45,6 +45,7 @@ const POT = {
   inner: [[1.1, -0.56], [1.07, -0.575], [1.055, -0.62], [1.0, -0.86]],
 } as const;
 const FOREGROUND_HAIR_DENSITY = 0.25;
+const GARDEN_LEAF = { rings: 48, segments: 32 };
 const lipT = (POT.outer.length - 1) / (POT.outer.length + POT.inner.length - 1);
 
 const SURFACES = {
@@ -154,39 +155,6 @@ function surfaceMaterial(id: SurfaceId): MeshStandardMaterial {
   return new MeshStandardMaterial({ map, bumpMap, bumpScale: surface.bumpScale, roughness: surface.roughness });
 }
 
-function curvedLeafGeometry(length: number, maxWidth: number, arch: number, curl: number, rows = 18, cols = 8): BufferGeometry {
-  const positions: number[] = [];
-  const uvs: number[] = [];
-  const indices: number[] = [];
-  for (let r = 0; r <= rows; r++) {
-    const along = r / rows;
-    const width = maxWidth * Math.sin(Math.PI * Math.pow(along, 0.72)) * (0.22 + 0.78 * (1 - along * 0.35));
-    const y = Math.sin(along * Math.PI * 0.78) * arch - along * along * (arch * 0.58);
-    const z = along * length;
-    for (let c = 0; c <= cols; c++) {
-      const across = (c / cols) * 2 - 1;
-      const x = across * width;
-      const cup = Math.abs(across) * width * 0.16 + across * across * curl * along;
-      positions.push(x, y + cup, z);
-      uvs.push(c / cols, along);
-    }
-  }
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const a = r * (cols + 1) + c;
-      const b = a + 1;
-      const d = a + cols + 1;
-      indices.push(a, d, b, b, d, d + 1);
-    }
-  }
-  const geometry = new BufferGeometry();
-  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('uv', new Float32BufferAttribute(uvs, 2));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  return geometry;
-}
-
 function createRepairedPot(terracottaMat: MeshStandardMaterial): Group {
   const group = new Group();
   const smallProfile = POT.outer.map(([r, y]) => new Vector2(r * 0.44, (y + 2.2) * 0.46));
@@ -218,61 +186,12 @@ function createRepairedPot(terracottaMat: MeshStandardMaterial): Group {
   return group;
 }
 
-function createTileSprout(sageMat: MeshStandardMaterial): Group {
-  const sprout = new Group();
-  const leafSpecs = [
-    { len: 0.34, w: 0.085, arch: 0.16, yaw: 0.25, pitch: 0.22 },
-    { len: 0.29, w: 0.075, arch: 0.14, yaw: 2.15, pitch: 0.28 },
-    { len: 0.26, w: 0.07, arch: 0.12, yaw: -1.65, pitch: 0.25 },
-    { len: 0.22, w: 0.06, arch: 0.15, yaw: 0.95, pitch: 0.38 },
-  ];
-  for (const spec of leafSpecs) {
-    const leaf = new Mesh(curvedLeafGeometry(spec.len, spec.w, spec.arch, 0.02), sageMat);
-    leaf.rotation.y = spec.yaw;
-    leaf.rotation.x = -spec.pitch;
-    leaf.castShadow = true;
-    leaf.receiveShadow = true;
-    sprout.add(leaf);
-  }
-  return sprout;
-}
-
-function addLeaf(parent: Group, material: MeshStandardMaterial, length: number, width: number, arch: number, pose: { x: number; y: number; z: number; yaw: number; pitch: number; roll?: number }, cast = true): Mesh {
-  const leaf = new Mesh(curvedLeafGeometry(length, width, arch, 0.04), material);
-  leaf.position.set(pose.x, pose.y, pose.z);
-  leaf.rotation.set(pose.pitch, pose.yaw, pose.roll ?? 0);
-  leaf.castShadow = cast;
-  leaf.receiveShadow = true;
-  parent.add(leaf);
-  return leaf;
-}
-
-function addCanopyLeaf(parent: Group, material: MeshStandardMaterial, veinMaterial: MeshStandardMaterial, length: number, width: number, arch: number, pose: { x: number; y: number; z: number; yaw: number; pitch: number; roll?: number }): void {
-  const leaf = new Mesh(curvedLeafGeometry(length, width, arch, 0.08, 10, 4), material);
-  leaf.position.set(pose.x, pose.y, pose.z);
-  leaf.rotation.set(pose.pitch, pose.yaw, pose.roll ?? 0);
-  leaf.castShadow = false;
-  leaf.receiveShadow = true;
-  parent.add(leaf);
-
-  const points = Array.from({ length: 5 }, (_, index) => {
-    const along = index * 0.2;
-    const y = Math.sin(along * Math.PI * 0.78) * arch - along * along * (arch * 0.58);
-    return new Vector3(0, y + 0.006, along * length);
-  });
-  const vein = new Mesh(new TubeGeometry(new CatmullRomCurve3(points), 8, width * 0.018, 4, false), veinMaterial);
-  vein.position.copy(leaf.position);
-  vein.rotation.copy(leaf.rotation);
-  vein.castShadow = false;
-  parent.add(vein);
-}
-
 /** Places a shared modeled blade; `lift` raises the tip, then `yaw` turns the blade about the vertical. */
-function addBroadLeaf(parent: Group, blade: Mesh, scale: number, pose: { x: number; y: number; z: number; yaw: number; lift: number }): void {
+function addBroadLeaf(parent: Group, blade: Mesh, scale: number, pose: { x: number; y: number; z: number; yaw: number; lift: number }, cast = true): void {
   const leaf = blade.clone();
   leaf.traverse((child) => {
     if (!(child instanceof Mesh)) return;
-    child.castShadow = child.userData.hair !== true;
+    child.castShadow = cast && child.userData.hair !== true;
     child.receiveShadow = true;
   });
   const holder = new Group();
@@ -360,9 +279,6 @@ export function createPatio(): PatioScene {
   const wallMaterial = surfaceMaterial('plaster');
   const trimMaterial = surfaceMaterial('trim');
   const terracottaMaterial = surfaceMaterial('terracotta');
-  const sunLeaf = new MeshStandardMaterial({ color: '#7d9a62', roughness: 0.82, side: DoubleSide, emissive: '#314226', emissiveIntensity: 0.12 });
-  const shadeLeaf = new MeshStandardMaterial({ color: '#4e6846', roughness: 0.9, side: DoubleSide });
-  const sageSproutMat = new MeshStandardMaterial({ color: '#758b64', roughness: 0.9, side: DoubleSide });
 
   const house = new Group();
   const backWall = new Mesh(new BoxGeometry(14, 4.8, 0.42), wallMaterial);
@@ -418,16 +334,6 @@ export function createPatio(): PatioScene {
   repairedPot.rotation.y = -0.4;
   root.add(repairedPot);
 
-  const midPot = createRepairedPot(terracottaMaterial);
-  midPot.position.set(1.35, -2.2, -1.15);
-  midPot.scale.setScalar(0.85);
-  midPot.rotation.y = 1.2;
-  root.add(midPot);
-
-  const tileSprout = createTileSprout(sageSproutMat);
-  tileSprout.position.set(0.95, -2.16, 1.55);
-  root.add(tileSprout);
-
   const broadLeaves = [
     createBroadLeaf(randomStream('foreground-leaf-a'), FOREGROUND_HAIR_DENSITY),
     createBroadLeaf(randomStream('foreground-leaf-b'), FOREGROUND_HAIR_DENSITY),
@@ -444,145 +350,62 @@ export function createPatio(): PatioScene {
   addBroadLeaf(rightFrame, broadLeaves[0], 8, { x: 0.1, y: 0.1, z: -0.45, yaw: Math.PI - 0.35, lift: 0.5 });
   root.add(rightFrame);
 
-  const canopy = new Group();
-  const canopyLeaf = new MeshStandardMaterial({ color: '#718653', roughness: 0.88, side: DoubleSide, emissive: '#4b6037', emissiveIntensity: 0.7 });
-  const canopyLight = new MeshStandardMaterial({ color: '#9aad73', roughness: 0.84, side: DoubleSide, emissive: '#647b49', emissiveIntensity: 0.52 });
-  const canopyVein = new MeshStandardMaterial({ color: '#52623b', roughness: 0.92 });
-  const canopyStem = new MeshStandardMaterial({ color: '#4d5940', roughness: 0.96 });
-  const archSpecs = [
-    { x: -4.4, y: 3.15, z: 4.5, yaw: 1.18, length: 3.3, width: 0.58, roll: 0.08 },
-    { x: 4.0, y: 3.0, z: 4.25, yaw: -1.12, length: 3.1, width: 0.55, roll: -0.1 },
-    { x: -2.2, y: 3.5, z: 4.0, yaw: 1.43, length: 2.45, width: 0.46, roll: 0.12 },
-    { x: 2.05, y: 3.42, z: 4.35, yaw: -1.44, length: 2.35, width: 0.48, roll: -0.08 },
+  const gardenLeaves = [
+    createBroadLeaf(randomStream('garden-leaf-a'), 0, GARDEN_LEAF),
+    createBroadLeaf(randomStream('garden-leaf-b'), 0, GARDEN_LEAF),
   ];
-  for (const [index, spec] of archSpecs.entries()) {
-    addCanopyLeaf(canopy, index % 2 === 0 ? canopyLeaf : canopyLight, canopyVein, spec.length, spec.width, 0.42, {
-      x: spec.x, y: spec.y, z: spec.z, yaw: spec.yaw, pitch: -0.08, roll: spec.roll,
-    });
-  }
-  for (const [x, side] of [[-4.2, 1], [4.0, -1]] as const) {
-    const branch = new Mesh(new TubeGeometry(new CatmullRomCurve3([
-      new Vector3(x, -1.8, 4.0), new Vector3(x + side * 0.25, 0.3, 4.35),
-      new Vector3(x + side * 0.7, 2.2, 4.8), new Vector3(x + side * 1.1, 3.5, 5.0),
-    ]), 18, 0.075, 7, false), canopyStem);
-    branch.castShadow = true;
-    canopy.add(branch);
-    for (let leaf = 0; leaf < 5; leaf++) {
-      const level = leaf * 0.68 - 0.2;
-      addCanopyLeaf(canopy, leaf % 2 === 0 ? canopyLight : canopyLeaf, canopyVein, 1.65 + (leaf % 3) * 0.28, 0.43 + (leaf % 2) * 0.12, 0.3, {
-        x: x + side * (0.14 + leaf * 0.13), y: -0.65 + level, z: 4.1 + leaf * 0.13,
-        yaw: side * (0.8 + (leaf % 3) * 0.32), pitch: -0.62 + (leaf % 2) * 0.15, roll: side * 0.08,
-      });
-    }
+  const canopy = new Group();
+  const canopyLeaves = [
+    { blade: 0, scale: 20, x: -6.2, y: 3.15, z: 6.4, yaw: 0.42, lift: -0.72 },
+    { blade: 1, scale: 16, x: -3.6, y: 3.7, z: 5.6, yaw: 0.95, lift: -0.48 },
+    { blade: 0, scale: 19, x: 6.4, y: 3.05, z: 6.3, yaw: Math.PI - 0.4, lift: 0.68 },
+    { blade: 1, scale: 15, x: 3.8, y: 3.6, z: 5.5, yaw: Math.PI - 0.9, lift: 0.45 },
+  ] as const;
+  for (const leaf of canopyLeaves) {
+    addBroadLeaf(canopy, gardenLeaves[leaf.blade], leaf.scale, leaf, false);
   }
   root.add(canopy);
 
   const climbers = new Group();
   const vineStem = new MeshStandardMaterial({ color: '#4d6845', roughness: 0.96 });
-  for (const [index, x] of [-4.8, -3.0, 0.5, 3.9, 5.15].entries()) {
+  for (const [index, x] of [-3.4, 0.4, 4.1].entries()) {
     const random = randomStream(`climber-${index}`);
-    const points = Array.from({ length: 7 }, (_, point) => new Vector3(
-      x + Math.sin(point * 1.1 + index) * (0.15 + point * 0.045),
-      -1.8 + point * 0.66,
-      -6.12 + Math.sin(point * 0.8) * 0.045,
+    const points = Array.from({ length: 6 }, (_, point) => new Vector3(
+      x + Math.sin(point * 1.1 + index) * 0.18,
+      -1.6 + point * 0.72,
+      -6.05,
     ));
-    const stem = new Mesh(new TubeGeometry(new CatmullRomCurve3(points), 32, 0.025, 5, false), vineStem);
-    stem.castShadow = true;
+    const stem = new Mesh(new TubeGeometry(new CatmullRomCurve3(points), 24, 0.035, 5, false), vineStem);
     climbers.add(stem);
-    for (let leaf = 0; leaf < 11; leaf++) {
-      const point = points[1 + Math.floor(leaf * 5 / 10)];
-      addLeaf(climbers, leaf % 3 === 0 ? canopyLight : canopyLeaf, 0.78 + random() * 0.34, 0.27 + random() * 0.09, 0.18, {
-        x: point.x + (leaf % 2 === 0 ? -0.2 : 0.2), y: point.y + (leaf % 2) * 0.16,
-        z: point.z - 0.05, yaw: leaf % 2 === 0 ? -0.7 : 0.7, pitch: -0.18, roll: (random() - 0.5) * 0.3,
-      }, false);
-    }
-  }
-  const wallPlants = new Group();
-  for (const [index, x] of [-4.6, -1.9, 1.7, 4.25].entries()) {
-    const random = randomStream(`wall-plant-${index}`);
-    for (let leaf = 0; leaf < 3; leaf++) {
+    for (let leaf = 0; leaf < 4; leaf++) {
+      const point = points[1 + leaf];
       const side = leaf % 2 === 0 ? -1 : 1;
-      addLeaf(wallPlants, leaf % 2 === 0 ? canopyLight : canopyLeaf, 1.35 + random() * 0.38, 0.46 + random() * 0.12, 0.25, {
-        x: x + side * (0.2 + random() * 0.25), y: -0.1 + leaf * 0.62, z: -5.65,
-        yaw: side * (0.58 + random() * 0.55), pitch: -0.5 + random() * 0.23, roll: side * 0.1,
+      addBroadLeaf(climbers, gardenLeaves[leaf % 2], 7.5 + random() * 1.6, {
+        x: point.x + side * 0.35,
+        y: point.y,
+        z: point.z + 0.35,
+        yaw: side * (0.4 + random() * 0.5),
+        lift: side * (0.15 + random() * 0.25),
       }, false);
     }
   }
-  root.add(wallPlants);
   root.add(climbers);
 
-  const shrubs = new Group();
-  const shrubRandom = randomStream('shrubs');
-  for (const [x, z] of [[-2.4, -1.6], [1.55, -2.2], [3.1, -0.8]] as const) {
-    for (let leaf = 0; leaf < 4; leaf++) {
-      addLeaf(shrubs, leaf % 2 === 0 ? sunLeaf : shadeLeaf, 0.95, 0.3, 0.42, {
-        x: x + (shrubRandom() - 0.5) * 0.45,
-        y: -1.85 + leaf * 0.08,
-        z: z + (shrubRandom() - 0.5) * 0.35,
-        yaw: shrubRandom() * Math.PI * 2,
-        pitch: -0.55 - shrubRandom() * 0.5,
-      }, false);
-    }
-  }
-  root.add(shrubs);
-
   const garden = new Group();
-  const bedRandom = randomStream('garden-leaves');
-  const leafGeometry = curvedLeafGeometry(0.7, 0.18, 0.22, 0.03);
-  const bedLeaves = new InstancedMesh(leafGeometry, shadeLeaf, 42);
-  const matrix = new Matrix4();
-  const quaternion = new Quaternion();
-  const scale = new Vector3();
-  const beds = [
-    { x: -2.4, z: -0.4, spread: 1.5 },
-    { x: -0.2, z: -2.2, spread: 1.3 },
-    { x: 2.6, z: -0.6, spread: 1.4 },
-    { x: 1.1, z: 1.8, spread: 0.8 },
-  ];
-  for (let index = 0; index < 42; index++) {
-    const bed = beds[index % beds.length];
-    const yaw = bedRandom() * Math.PI * 2;
-    quaternion.setFromEuler(new Euler(-0.4 - bedRandom() * 0.8, yaw, (bedRandom() - 0.5) * 0.4));
-    const size = 0.85 + bedRandom() * 0.9;
-    scale.setScalar(size);
-    matrix.compose(
-      new Vector3(bed.x + (bedRandom() - 0.5) * bed.spread, -2.05 + bedRandom() * 0.15, bed.z + (bedRandom() - 0.5) * bed.spread),
-      quaternion,
-      scale,
-    );
-    bedLeaves.setMatrixAt(index, matrix);
-  }
-  bedLeaves.receiveShadow = true;
-  garden.add(bedLeaves);
-  for (let index = 0; index < 10; index++) {
-    const side = index < 6 ? -1 : 1;
+  const pathLeaves = [
+    { blade: 0, scale: 6, x: -2.6, y: -1.7, z: -0.4, yaw: 0.8, lift: 0.35 },
+    { blade: 1, scale: 5, x: -1.7, y: -1.85, z: -1.6, yaw: 2.2, lift: 0.2 },
+    { blade: 0, scale: 5.5, x: 2.4, y: -1.75, z: -0.2, yaw: -1.1, lift: -0.25 },
+    { blade: 1, scale: 4.8, x: 1.6, y: -1.9, z: -1.8, yaw: -2.4, lift: -0.15 },
+  ] as const;
+  for (const leaf of pathLeaves) addBroadLeaf(garden, gardenLeaves[leaf.blade], leaf.scale, leaf, false);
+  for (const [index, side] of [[0, -1], [1, -1], [2, 1], [3, 1]] as const) {
     plantSpike(
       garden,
       randomStream(`spike-${index}`),
-      new Vector3(FLOWER_BED.x + side * (0.7 + (index % 3) * 0.35), -2.15, FLOWER_BED.z - 0.4 - (index % 4) * 0.45),
-      0.95 + (index % 3) * 0.2,
+      new Vector3(FLOWER_BED.x + side * (1.15 + index * 0.15), -2.15, FLOWER_BED.z - 1.3 - index * 0.35),
+      0.85,
     );
-  }
-  const smallFlower = new MeshStandardMaterial({ color: '#e0b03a', roughness: 0.7, side: DoubleSide });
-  const smallDisk = new MeshStandardMaterial({ color: '#3a2918', roughness: 1 });
-  for (const [x, z, spin] of [[-2.15, -1.35, 0.4], [0.15, -2.55, 1.1]] as const) {
-    const bloom = new Group();
-    bloom.position.set(x, -2.15, z);
-    bloom.rotation.y = spin;
-    const head = new Mesh(new IcosahedronGeometry(0.16, 1), smallDisk);
-    head.position.y = 0.95;
-    bloom.add(head);
-    for (let petal = 0; petal < 8; petal++) {
-      const angle = petal / 8 * Math.PI * 2;
-      const ray = new Mesh(new PlaneGeometry(0.16, 0.42), smallFlower);
-      ray.position.set(Math.cos(angle) * 0.28, 0.95, Math.sin(angle) * 0.28);
-      ray.rotation.set(-0.7, -angle, 0);
-      bloom.add(ray);
-    }
-    const stalk = new Mesh(new BoxGeometry(0.03, 0.95, 0.03), sageSproutMat);
-    stalk.position.y = 0.45;
-    bloom.add(stalk);
-    garden.add(bloom);
   }
   root.add(garden);
 
@@ -623,6 +446,9 @@ export function createPatio(): PatioScene {
   soil.receiveShadow = true;
   root.add(soil);
 
+  const matrix = new Matrix4();
+  const quaternion = new Quaternion();
+  const scale = new Vector3();
   const random = randomStream('soil-clods');
   const clods = new InstancedMesh(new IcosahedronGeometry(1, 0), new MeshStandardMaterial({ color: '#4a392a', roughness: 1, vertexColors: true }), 90);
   for (let index = 0; index < 90; index++) {
@@ -644,7 +470,7 @@ export function createPatio(): PatioScene {
       leftFrame.rotation.z = amount * 0.04;
       leftFrame.rotation.x = amount * 0.02;
       rightFrame.rotation.z = amount * -0.035;
-      tileSprout.rotation.z = amount * 0.06;
+      canopy.rotation.z = amount * 0.012;
     },
   };
 }

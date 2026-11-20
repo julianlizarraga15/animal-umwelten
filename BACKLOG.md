@@ -9,15 +9,15 @@
   Grab3D sunflower. After a material pass, the authored Rudbeckia and leaf
   hold beside the concept in close and oblique views. The user accepted them
   on 2026-11-18 and they now sit in the garden.
-- Get a visual verdict on the integrated garden beside the concept.
+- Get a visual verdict on the quieter garden. The flat leaves are gone. The
+  back wall is now sparse, and one upper leaf still enters from off-frame.
 - At the reverse inspection pose, petal-back hairs read as isolated thorns.
 
 
 ## Next experiment
 
-- Fill the open back wall so the garden frame sits closer to the afternoon
-  concept after graphical quality improves. Asset production is unresolved;
-  the authored Gazania study improves detail but fails the reference quality bar.
+- Fill the back wall with more of the same broad leaf if the sparse vines
+  read as empty. Do not bring back a second leaf shape.
 
 - Evaluate whether visitors understand the spider's directional vibration cue
   and the difference between a visible signal encoding and animal vision.

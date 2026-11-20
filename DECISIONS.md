@@ -1,5 +1,14 @@
 # Decisions
 
+## 2026-11-20: Use one leaf and thin the patio
+
+The flat canopy, wall, shrub, and ground leaves sat next to the modeled broad
+leaf and made the patio look like two gardens. Background plants now clone the
+same leaf at 48 by 32 rings, without hairs. The hero leaves stay at full
+detail. The middle pot, the tile sprout, the two plane-petal flowers, and the
+carpet of 42 ground leaves are gone. Four violet spikes remain, farther from
+the pot. The back wall is sparser than the concept.
+
 ## 2026-11-18: Refine canopy leaves and human ray color
 
 Give the upper canopy a low-resolution curved blade and a central vein. Keep
