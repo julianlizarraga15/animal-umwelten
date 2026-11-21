@@ -1,5 +1,13 @@
 # Decisions
 
+## 2026-11-21: Let the patio be a place, not a dashboard
+
+Hide specimen captions and lesson controls on the opening patio, then reveal
+the relevant controls only after arrival. One exhaustive mapping from camera
+state owns the copy and visibility so interface state cannot drift from place.
+The opening names flower contrast and web vibration; bounded science claims
+remain in the drawer. The rendering is explanatory, not literal animal vision.
+
 ## 2026-11-20: Give the spider web a silk spiral and a distinct spider
 
 Replace the dense concentric circles with a wider capture spiral and 16 spokes,

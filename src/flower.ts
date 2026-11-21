@@ -98,7 +98,7 @@ export function createFlower(): { readonly root: Group; setView(view: View): voi
     if (hair) child.raycast = () => {};
   });
   const bee = createBee();
-  bee.root.scale.setScalar(0.7);
+  bee.root.scale.setScalar(1.05);
   root.add(bee.root);
   const hover = new Vector3(0.58, 1.86, 0.42);
   const approach = new Vector3(1.85, 2.25, 1.55);

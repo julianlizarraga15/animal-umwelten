@@ -18,8 +18,8 @@ const SPIDER_APPROACH_MS = 650;
 export function createSpiderWeb() {
   const root = new Group();
   root.position.copy(WEB_CENTER);
-  root.scale.setScalar(0.78);
-  const silk = new LineBasicMaterial({ color: '#9aab8c', transparent: true, opacity: 0.42 });
+  root.scale.setScalar(1);
+  const silk = new LineBasicMaterial({ color: '#d5e3c4', transparent: true, opacity: 0.82 });
   const dark = new MeshStandardMaterial({ color: '#352c25', roughness: 0.75 });
   function line(points: Vector3[], material: LineBasicMaterial, parent = root) {
     const object = new Line(new BufferGeometry().setFromPoints(points), material);

@@ -59,6 +59,80 @@ type CameraState =
   | { kind: 'returning'; startTime: number; fromPos: Vector3; fromYaw: number; fromPitch: number }
   | { kind: 'inspection'; id: InspectionId };
 
+type PlaceCopy = {
+  specimenTitle: string;
+  specimenLabel: string;
+  hintHtml: string;
+  showSpecimen: boolean;
+  showBeeControls: boolean;
+  showWebControls: boolean;
+};
+
+function placeCopy(state: CameraState): PlaceCopy {
+  const flower = {
+    specimenTitle: '01 / FLOR · CONTRASTE',
+    specimenLabel: 'Rudbeckia hirta',
+  };
+  const web = {
+    specimenTitle: '02 / RED · VIBRACIONES',
+    specimenLabel: 'Uloborus diversus',
+  };
+  switch (state.kind) {
+    case 'patio':
+      return {
+        specimenTitle: '01 / JARDÍN · EXPLORAR',
+        specimenLabel: '',
+        hintHtml: 'Arrastra para mirar <span>·</span> Elige la flor o la red',
+        showSpecimen: false,
+        showBeeControls: false,
+        showWebControls: false,
+      };
+    case 'approaching':
+      return {
+        ...(state.destination === 'web' ? web : flower),
+        hintHtml: state.destination === 'web' ? 'Acercándose a la red…' : 'Acercándose a la flor…',
+        showSpecimen: false,
+        showBeeControls: false,
+        showWebControls: false,
+      };
+    case 'flower':
+      return {
+        ...flower,
+        hintHtml: 'Junto a los pétalos superiores <span>·</span> Cambia de referencia o vuelve al patio',
+        showSpecimen: true,
+        showBeeControls: true,
+        showWebControls: false,
+      };
+    case 'web':
+      return {
+        ...web,
+        hintHtml: 'Red horizontal <span>·</span> Toca un sector o usa los botones numerados',
+        showSpecimen: true,
+        showBeeControls: false,
+        showWebControls: true,
+      };
+    case 'returning':
+      return {
+        specimenTitle: '01 / JARDÍN · EXPLORAR',
+        specimenLabel: '',
+        hintHtml: 'Volviendo al patio…',
+        showSpecimen: false,
+        showBeeControls: false,
+        showWebControls: false,
+      };
+    case 'inspection':
+      return {
+        ...flower,
+        hintHtml: 'Vista de inspección <span>·</span> Reverso de los pétalos',
+        showSpecimen: true,
+        showBeeControls: true,
+        showWebControls: false,
+      };
+    default:
+      return assertNever(state);
+  }
+}
+
 const APPROACH_DURATION_MS = 1150;
 const RETURN_DURATION_MS = 1050;
 const SWAY_DURATION_MS = 1400;
@@ -249,18 +323,21 @@ function mount(container: HTMLElement): void {
 
   function syncUiState(): void {
     document.body.dataset.camera = cameraState.kind;
+    const copy = placeCopy(cameraState);
     const atWeb = cameraState.kind === 'web';
     canvas.setAttribute('aria-label', atWeb ? 'Red horizontal con araña de ocho patas y cuatro sectores numerados. Usa los botones de sector para tocar o responder.' : 'Jardín de tarde con una flor y una red horizontal esquemáticas. Usa los botones para acercarte.');
-    if (webControls) webControls.hidden = !atWeb;
-    if (beeSelector) beeSelector.hidden = atWeb;
+    if (webControls) webControls.hidden = !copy.showWebControls;
+    if (beeSelector) beeSelector.hidden = !copy.showBeeControls;
     const beeLesson = document.querySelector<HTMLElement>('#bee-lesson');
     const spiderLesson = document.querySelector<HTMLElement>('#spider-lesson');
     if (beeLesson) beeLesson.hidden = atWeb;
     if (spiderLesson) spiderLesson.hidden = !atWeb;
-    const specimenHeading = document.querySelector('#specimen-title');
-    if (specimenHeading) specimenHeading.textContent = atWeb ? '02 / RED · VIBRACIONES' : cameraState.kind === 'flower' ? '01 / FLOR · CONTRASTE' : '01 / JARDÍN · EXPLORAR';
+    const specimenHeading = document.querySelector<HTMLElement>('.specimen-heading');
+    if (specimenHeading) specimenHeading.hidden = !copy.showSpecimen;
+    const specimenTitle = document.querySelector('#specimen-title');
+    if (specimenTitle) specimenTitle.textContent = copy.specimenTitle;
     const specimenLabel = document.querySelector('#specimen-label');
-    if (specimenLabel) specimenLabel.textContent = atWeb ? 'Uloborus diversus' : 'Rudbeckia hirta';
+    if (specimenLabel) specimenLabel.textContent = copy.specimenLabel;
     if (webApproach) webApproach.disabled = cameraState.kind !== 'patio';
     if (approachButton) approachButton.setAttribute('aria-pressed', String(cameraState.kind === 'patio' || cameraState.kind === 'approaching' && cameraState.destination === 'flower' || cameraState.kind === 'flower'));
     if (approachWebButton) approachWebButton.setAttribute('aria-pressed', String(cameraState.kind === 'web' || cameraState.kind === 'approaching' && cameraState.destination === 'web'));
@@ -268,6 +345,7 @@ function mount(container: HTMLElement): void {
     document.querySelectorAll<HTMLButtonElement | HTMLInputElement>('#web-controls button, #web-controls input').forEach(input => input.disabled = !atWeb);
     if (webStatus) webStatus.textContent = web.status;
     document.body.dataset.webPhase = web.phase;
+    if (travelStatus) travelStatus.innerHTML = copy.hintHtml;
     if (!contextAvailable) {
       setAllControlsDisabled(true);
       return;
@@ -277,39 +355,29 @@ function mount(container: HTMLElement): void {
         if (approachButton) approachButton.disabled = false;
         if (returnButton) returnButton.disabled = true;
         setLookButtonsDisabled(false);
-        if (travelStatus) {
-          travelStatus.innerHTML = 'Arrastra para mirar el jardín <span>·</span> Toca la flor o la red para acercarte';
-        }
         break;
       case 'approaching':
         if (approachButton) approachButton.disabled = true;
         if (returnButton) returnButton.disabled = false;
         setLookButtonsDisabled(true);
-        if (travelStatus) travelStatus.textContent = cameraState.destination === 'web' ? 'Acercándose a la red…' : 'Acercándose a la flor…';
         break;
       case 'web':
         if (approachButton) approachButton.disabled = true;
         if (returnButton) returnButton.disabled = false;
         setLookButtonsDisabled(true);
-        if (travelStatus) travelStatus.textContent = 'Red horizontal · toca un sector o usa los botones numerados';
         break;
       case 'flower':
         if (approachButton) approachButton.disabled = true;
         if (returnButton) returnButton.disabled = false;
         setLookButtonsDisabled(false);
-        if (travelStatus) {
-          travelStatus.innerHTML = 'Junto a los pétalos superiores <span>·</span> Cambia de referencia o vuelve al patio';
-        }
         break;
       case 'returning':
         if (approachButton) approachButton.disabled = true;
         if (returnButton) returnButton.disabled = true;
         setLookButtonsDisabled(true);
-        if (travelStatus) travelStatus.textContent = 'Volviendo al jardín…';
         break;
       case 'inspection':
         document.querySelectorAll<HTMLButtonElement>('.camera-controls button').forEach(button => button.disabled = true);
-        if (travelStatus) travelStatus.textContent = 'Vista de inspección · reverso de los pétalos';
         break;
       default:
         assertNever(cameraState);

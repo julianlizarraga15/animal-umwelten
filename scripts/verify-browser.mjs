@@ -74,7 +74,7 @@ try {
   const lookLeft = page.getByRole('button', { name: 'Mirar a la izquierda', exact: true });
   const lookRight = page.getByRole('button', { name: 'Mirar a la derecha', exact: true });
 
-  assert(await human.isChecked(), 'Human-reference mode is initially selected for the art-directed overview');
+  assert(await page.locator('input[name="view"][value="human"]').isChecked(), 'Human-reference mode is initially selected for the art-directed overview');
   assert.equal(await page.evaluate(() => document.body.dataset.camera), 'patio', 'Starts at patio viewpoint');
   assert(await approachBtn.isEnabled(), 'Approach button is enabled in patio');
   assert(await returnBtn.isDisabled(), 'Return button is disabled in patio');
@@ -150,6 +150,7 @@ try {
   assert(await human.isChecked(), 'Keyboard radio selection switches to human mode');
   await page.keyboard.press('ArrowDown');
   assert(await uv.isChecked(), 'Keyboard radio selection returns to UV mode');
+  await human.check();
 
   await returnBtn.click();
   await page.waitForFunction(() => document.body.dataset.camera === 'patio');
@@ -182,12 +183,12 @@ try {
   }));
   assert(dimensions.page <= dimensions.viewport, 'Narrow layout has no horizontal overflow');
   assert(dimensions.canvas.width > 0 && dimensions.canvas.height > 0, 'Canvas resizes with nonzero drawing area');
-  await page.getByRole('radio', { name: 'Referencia humana', exact: true }).check();
   await page.screenshot({ path: `${output}/patio-human-mobile.png`, fullPage: true });
 
   await approachBtn.click();
   await page.waitForFunction(() => document.body.dataset.camera === 'flower');
   await settle();
+  await page.getByRole('radio', { name: 'Referencia humana', exact: true }).check();
   await page.screenshot({ path: `${output}/flower-human-mobile.png`, fullPage: true });
   await returnBtn.click();
   await page.waitForFunction(() => document.body.dataset.camera === 'patio');

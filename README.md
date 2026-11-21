@@ -20,8 +20,9 @@ enabled for this Windows-mounted WSL checkout. Drag on the canvas or use the
 directional buttons (or arrow keys when the canvas is focused) to look around
 from your current position. Click or tap the flower—or press "Acercarse a la
 flor"—to approach the upper petals, and "Volver al patio" to cancel travel or
-return. Switch between "Contraste UV" (initial mode) and "Referencia humana"
-with the radio controls; arrow keys change a focused radio selection.
+return. The opening uses "Referencia humana"; at the flower, radio controls
+appear for switching between "Referencia humana" and "Contraste UV". Arrow keys
+change a focused radio selection.
 
 Choose "Acercarse a la red" or tap the web to explore the second signal. At the
 web, tap a location or use the four numbered sector buttons. "Buscar una mosca"

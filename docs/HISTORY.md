@@ -1,5 +1,14 @@
 # History
 
+## 2026-11-21: Make the opening patio readable
+
+Added a short two-lesson introduction and state-derived interface visibility,
+so the patio shows destinations and camera controls without specimen or lesson
+panels. Replaced the wall leaf grid with four sparse vines, reduced the ground
+leaves, planted the path pots, brightened the full-size silk web, and enlarged
+the bee. Typecheck, build, and the browser suite pass at desktop and mobile
+viewports. Not committed or deployed.
+
 ## 2026-11-20: Refine the spider web and silhouette
 
 Changed the web from dense concentric rings to a wider, softer spiral with fewer
