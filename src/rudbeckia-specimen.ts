@@ -399,7 +399,7 @@ export function createRudbeckiaHead(random: Random, withUvGuide = false): Rudbec
       geometry.applyMatrix4(bladeMatrix(azimuth, whorl.pitch + (random() - 0.5) * 0.14, DISK_RADIUS * 0.72, whorl.height));
       scatterHairs(geometry, {
         count: 40,
-        length: 0.0006,
+        length: 0.00035,
         lean: 1.4,
         accept: (u, theta) => Math.sin(theta) < -0.5 && u > 0.05 && u < 0.85,
       }, random, petalHairs);

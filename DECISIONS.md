@@ -1,5 +1,14 @@
 # Decisions
 
+## 2026-11-20: Give the spider web a silk spiral and a distinct spider
+
+Replace the dense concentric circles with a wider capture spiral and 16 spokes,
+soften the silk, and model the spider with separate body sections and eight
+jointed legs. Shape the supports as curved branches with connected leaves that
+reuse the garden leaf. Keep the four numbered interaction sectors and
+directional signal unchanged. Remove the canopy leaf that crossed the patio
+heading and reduce the lower-left framing leaf.
+
 ## 2026-11-20: Use one leaf and thin the patio
 
 The flat canopy, wall, shrub, and ground leaves sat next to the modeled broad

@@ -187,7 +187,7 @@ function createRepairedPot(terracottaMat: MeshStandardMaterial): Group {
 }
 
 /** Places a shared modeled blade; `lift` raises the tip, then `yaw` turns the blade about the vertical. */
-function addBroadLeaf(parent: Group, blade: Mesh, scale: number, pose: { x: number; y: number; z: number; yaw: number; lift: number }, cast = true): void {
+function addBroadLeaf(parent: Group, blade: Mesh, scale: number, pose: { x: number; y: number; z: number; yaw: number; lift: number; pitch?: number; faceCamera?: boolean }, cast = true): void {
   const leaf = blade.clone();
   leaf.traverse((child) => {
     if (!(child instanceof Mesh)) return;
@@ -197,7 +197,14 @@ function addBroadLeaf(parent: Group, blade: Mesh, scale: number, pose: { x: numb
   const holder = new Group();
   holder.add(leaf);
   holder.position.set(pose.x, pose.y, pose.z);
-  holder.rotation.set(0, pose.yaw, pose.lift);
+  if (pose.faceCamera) {
+    const tip = new Vector3(Math.sin(pose.lift), Math.cos(pose.lift), 0).normalize();
+    const face = new Vector3(0, 0, 1);
+    const across = new Vector3().crossVectors(face, tip).normalize();
+    leaf.rotation.setFromRotationMatrix(new Matrix4().makeBasis(tip, across, face));
+  } else {
+    holder.rotation.set(pose.pitch ?? 0, pose.yaw, pose.lift);
+  }
   holder.scale.setScalar(scale);
   parent.add(holder);
 }
@@ -340,7 +347,7 @@ export function createPatio(): PatioScene {
   ];
   const leftFrame = new Group();
   leftFrame.position.set(-2.75, -1.05, 5.5);
-  addBroadLeaf(leftFrame, broadLeaves[0], 13.5, { x: 0, y: 0, z: 0, yaw: 0.3, lift: 0.58 });
+  addBroadLeaf(leftFrame, broadLeaves[0], 8.5, { x: 0, y: 0, z: 0, yaw: 0.3, lift: 0.3 });
   addBroadLeaf(leftFrame, broadLeaves[1], 12, { x: 0.25, y: -0.3, z: 0.55, yaw: -0.1, lift: 0.22 });
   root.add(leftFrame);
 
@@ -356,8 +363,6 @@ export function createPatio(): PatioScene {
   ];
   const canopy = new Group();
   const canopyLeaves = [
-    { blade: 0, scale: 20, x: -6.2, y: 3.15, z: 6.4, yaw: 0.42, lift: -0.72 },
-    { blade: 1, scale: 16, x: -3.6, y: 3.7, z: 5.6, yaw: 0.95, lift: -0.48 },
     { blade: 0, scale: 19, x: 6.4, y: 3.05, z: 6.3, yaw: Math.PI - 0.4, lift: 0.68 },
     { blade: 1, scale: 15, x: 3.8, y: 3.6, z: 5.5, yaw: Math.PI - 0.9, lift: 0.45 },
   ] as const;
@@ -366,39 +371,53 @@ export function createPatio(): PatioScene {
   }
   root.add(canopy);
 
-  const climbers = new Group();
-  const vineStem = new MeshStandardMaterial({ color: '#4d6845', roughness: 0.96 });
-  for (const [index, x] of [-3.4, 0.4, 4.1].entries()) {
-    const random = randomStream(`climber-${index}`);
-    const points = Array.from({ length: 6 }, (_, point) => new Vector3(
-      x + Math.sin(point * 1.1 + index) * 0.18,
-      -1.6 + point * 0.72,
-      -6.05,
-    ));
-    const stem = new Mesh(new TubeGeometry(new CatmullRomCurve3(points), 24, 0.035, 5, false), vineStem);
-    climbers.add(stem);
-    for (let leaf = 0; leaf < 4; leaf++) {
-      const point = points[1 + leaf];
-      const side = leaf % 2 === 0 ? -1 : 1;
-      addBroadLeaf(climbers, gardenLeaves[leaf % 2], 7.5 + random() * 1.6, {
-        x: point.x + side * 0.35,
-        y: point.y,
-        z: point.z + 0.35,
-        yaw: side * (0.4 + random() * 0.5),
-        lift: side * (0.15 + random() * 0.25),
+  const wallGarden = new Group();
+  const wallRandom = randomStream('wall-garden');
+  const wallColumns = [-5.7, -4.8, -3.9, -3.0, -2.1, -1.2, -0.3, 0.6, 1.5, 2.5, 3.4, 4.3, 5.2];
+  const wallRows = [-1.2, -0.4, 0.4, 1.15, 1.85, 2.45];
+  wallRows.forEach((row, rowIndex) => {
+    wallColumns.forEach((column) => {
+      const x = column + (rowIndex % 2) * 0.42;
+      const coversWindow = x > 2.25 && x < 3.2 && row > 0.1 && row < 1.4;
+      const coversDoor = x > 0.05 && x < 1.15 && row < 0.95;
+      if (coversWindow || coversDoor) return;
+      addBroadLeaf(wallGarden, gardenLeaves[wallRandom() > 0.5 ? 0 : 1], 7.2 + wallRandom() * 2.4, {
+        x: x + (wallRandom() - 0.5) * 0.18,
+        y: row + (wallRandom() - 0.5) * 0.16,
+        z: -5.35 - wallRandom() * 0.35,
+        yaw: 0,
+        lift: (wallRandom() - 0.5) * 1.15,
+        faceCamera: true,
       }, false);
-    }
-  }
-  root.add(climbers);
+    });
+  });
+  root.add(wallGarden);
+
+  const nearPath = createRepairedPot(terracottaMaterial);
+  nearPath.position.set(1.15, -2.2, -1.55);
+  nearPath.scale.setScalar(0.72);
+  nearPath.rotation.y = 0.6;
+  const farPath = createRepairedPot(terracottaMaterial);
+  farPath.position.set(-0.85, -2.2, -3.45);
+  farPath.scale.setScalar(0.48);
+  farPath.rotation.y = -0.8;
+  root.add(nearPath, farPath);
+  addBroadLeaf(wallGarden, gardenLeaves[0], 5.5, { x: 1.35, y: -1.55, z: -1.2, yaw: -0.8, lift: 0.4, pitch: -0.4 }, false);
+  addBroadLeaf(wallGarden, gardenLeaves[1], 4.2, { x: -0.7, y: -1.85, z: -3.1, yaw: 0.9, lift: -0.25, pitch: -0.3 }, false);
 
   const garden = new Group();
-  const pathLeaves = [
-    { blade: 0, scale: 6, x: -2.6, y: -1.7, z: -0.4, yaw: 0.8, lift: 0.35 },
-    { blade: 1, scale: 5, x: -1.7, y: -1.85, z: -1.6, yaw: 2.2, lift: 0.2 },
-    { blade: 0, scale: 5.5, x: 2.4, y: -1.75, z: -0.2, yaw: -1.1, lift: -0.25 },
-    { blade: 1, scale: 4.8, x: 1.6, y: -1.9, z: -1.8, yaw: -2.4, lift: -0.15 },
-  ] as const;
-  for (const leaf of pathLeaves) addBroadLeaf(garden, gardenLeaves[leaf.blade], leaf.scale, leaf, false);
+  const groundRandom = randomStream('ground-leaves');
+  for (let index = 0; index < 16; index++) {
+    const side = index % 2 === 0 ? -1 : 1;
+    addBroadLeaf(garden, gardenLeaves[index % 2], 6.2 + groundRandom() * 1.6, {
+      x: side * (1.7 + groundRandom() * 0.8),
+      y: -1.45,
+      z: 1.8 - Math.floor(index / 2) * 0.55,
+      yaw: side * (0.4 + groundRandom() * 0.8),
+      lift: side * 0.15,
+      pitch: -0.95,
+    }, false);
+  }
   for (const [index, side] of [[0, -1], [1, -1], [2, 1], [3, 1]] as const) {
     plantSpike(
       garden,

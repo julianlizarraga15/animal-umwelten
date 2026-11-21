@@ -1,4 +1,5 @@
-import { BufferGeometry, CylinderGeometry, CircleGeometry, DoubleSide, Group, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, MeshStandardMaterial, SphereGeometry, TorusGeometry, Vector3 } from 'three';
+import { BufferGeometry, CylinderGeometry, CircleGeometry, CatmullRomCurve3, DoubleSide, Group, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, MeshStandardMaterial, SphereGeometry, TorusGeometry, TubeGeometry, Vector3 } from 'three';
+import { createBroadLeaf } from './rudbeckia-specimen';
 
 export const WEB_SECTORS = [
   { id: 1, label: 'Sector 1', x: 0, z: -1 },
@@ -18,7 +19,7 @@ export function createSpiderWeb() {
   const root = new Group();
   root.position.copy(WEB_CENTER);
   root.scale.setScalar(0.78);
-  const silk = new LineBasicMaterial({ color: '#e9edda' });
+  const silk = new LineBasicMaterial({ color: '#9aab8c', transparent: true, opacity: 0.42 });
   const dark = new MeshStandardMaterial({ color: '#352c25', roughness: 0.75 });
   function line(points: Vector3[], material: LineBasicMaterial, parent = root) {
     const object = new Line(new BufferGeometry().setFromPoints(points), material);
@@ -26,49 +27,81 @@ export function createSpiderWeb() {
     return object;
   }
   const point = (angle: number, radius: number) => new Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
-  for (let radius = 0.17; radius <= 1.31; radius += 0.14) {
-    line(Array.from({ length: 65 }, (_, i) => point(i / 64 * Math.PI * 2, radius)), silk);
+  // A loose capture spiral and fewer spoke lines make the web read as silk,
+  // while the four lesson sectors remain easy to identify.
+  const spiralPoints = Array.from({ length: 161 }, (_, i) => {
+    const t = i / 160;
+    return point(t * Math.PI * 2 * 3.2, 0.12 + t * 1.28);
+  });
+  line(spiralPoints, silk);
+  for (let i = 0; i < 16; i++) {
+    const angle = i / 16 * Math.PI * 2;
+    line([point(angle, 0.08), point(angle, 1.4)], silk);
   }
-  for (let i = 0; i < 24; i++) line([new Vector3(), point(i / 24 * Math.PI * 2, 1.4)], silk);
   line(Array.from({ length: 65 }, (_, i) => point(i / 64 * Math.PI * 2, 1.4)), silk);
-  const stemMaterial = new MeshStandardMaterial({ color: '#676b3f', roughness: 1 });
-  const leafMaterial = new MeshStandardMaterial({ color: '#667b48', roughness: 1 });
+  const stemMaterial = new MeshStandardMaterial({ color: '#526847', roughness: 1 });
+  const leafPrototype = createBroadLeaf(() => 0.5, 0, { rings: 20, segments: 16 });
   for (const angle of [0.15, Math.PI * 0.7, Math.PI * 1.28]) {
     const anchor = point(angle, 1.72);
-    const drop = 3.5;
-    const stem = new Mesh(new CylinderGeometry(0.016, 0.04, drop, 7), stemMaterial);
-    stem.position.set(anchor.x, -drop / 2 + 0.04, anchor.z);
+    const outward = point(angle, 1);
+    const curve = new CatmullRomCurve3([
+      new Vector3(anchor.x, 0.05, anchor.z),
+      new Vector3(anchor.x + outward.x * 0.13, -0.8, anchor.z + outward.z * 0.13),
+      new Vector3(anchor.x - outward.x * 0.08, -1.75, anchor.z - outward.z * 0.08),
+      new Vector3(anchor.x + outward.x * 0.24, -2.42, anchor.z + outward.z * 0.24),
+    ]);
+    const stem = new Mesh(new TubeGeometry(curve, 18, 0.018, 6, false), stemMaterial);
     stem.castShadow = true;
     root.add(stem);
     line([point(angle, 1.35), anchor], silk);
-    for (const height of [0.45, 1.15, 1.9]) {
-      for (const side of [-1, 1]) {
-        const leaf = new Mesh(new SphereGeometry(0.1, 8, 5), leafMaterial);
-        leaf.scale.set(1, 0.14, 2.15);
-        leaf.rotation.z = side * 0.42;
-        leaf.rotation.y = angle + side * 0.25;
-        leaf.position.set(
-          anchor.x * (0.45 + height * 0.12) + Math.cos(angle + side) * 0.08,
-          -height,
-          anchor.z * (0.45 + height * 0.12) + Math.sin(angle + side) * 0.08,
-        );
-        leaf.castShadow = true;
-        root.add(leaf);
-      }
+    const branchPoints = curve.getPoints(36);
+    for (const [height, side] of [[-0.75, -1], [-1.38, 1], [-1.95, -1]] as const) {
+      const node = branchPoints.reduce((nearest, candidate) =>
+        Math.abs(candidate.y - height) < Math.abs(nearest.y - height) ? candidate : nearest,
+      );
+      const leafPosition = node.clone().add(new Vector3(Math.cos(angle + side * 0.6) * 0.1, 0.04, Math.sin(angle + side * 0.6) * 0.1));
+      const petiole = new Mesh(new TubeGeometry(new CatmullRomCurve3([node, leafPosition]), 4, 0.006, 5, false), stemMaterial);
+      petiole.castShadow = true;
+      root.add(petiole);
+      const leaf = leafPrototype.clone();
+      leaf.scale.setScalar(1.7);
+      leaf.rotation.y = angle + side * 0.72;
+      leaf.position.copy(leafPosition);
+      leaf.castShadow = true;
+      root.add(leaf);
     }
   }
   const spider = new Group();
-  const abdomen = new Mesh(new SphereGeometry(0.115, 16, 12), dark);
-  abdomen.scale.set(0.85, 0.7, 1.3);
-  abdomen.position.set(0, 0.09, 0.07);
+  const abdomen = new Mesh(new SphereGeometry(0.12, 20, 14), new MeshStandardMaterial({ color: '#47342b', roughness: 0.62 }));
+  abdomen.scale.set(0.82, 0.72, 1.28);
+  abdomen.position.set(0, 0.095, 0.105);
   spider.add(abdomen);
-  const head = new Mesh(new SphereGeometry(0.075, 12, 8), dark);
-  head.position.set(0, 0.08, -0.1);
+  const cephalothorax = new Mesh(new SphereGeometry(0.075, 16, 12), new MeshStandardMaterial({ color: '#302921', roughness: 0.58 }));
+  cephalothorax.scale.set(0.92, 0.72, 1.12);
+  cephalothorax.position.set(0, 0.085, -0.105);
+  spider.add(cephalothorax);
+  const head = new Mesh(new SphereGeometry(0.044, 12, 8), dark);
+  head.position.set(0, 0.105, -0.17);
   spider.add(head);
-  const legs = new LineBasicMaterial({ color: '#352c25' });
+  const legs = new MeshStandardMaterial({ color: '#302921', roughness: 0.7 });
+  const joint = new MeshStandardMaterial({ color: '#655044', roughness: 0.76 });
+  function limb(start: Vector3, end: Vector3, radius: number, material: MeshStandardMaterial, parent: Group): void {
+    const delta = end.clone().sub(start);
+    const segment = new Mesh(new CylinderGeometry(radius * 0.68, radius, delta.length(), 7), material);
+    segment.position.copy(start).add(end).multiplyScalar(0.5);
+    segment.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), delta.normalize());
+    parent.add(segment);
+  }
   for (const side of [-1, 1]) {
     for (let i = 0; i < 4; i++) {
-      line([new Vector3(side * 0.04, 0.08, -0.1 + i * 0.05), new Vector3(side * (0.21 + i * 0.015), 0.14, -0.27 + i * 0.16), new Vector3(side * (0.3 + i * 0.015), 0.015, -0.35 + i * 0.22)], legs, spider);
+      const start = new Vector3(side * 0.045, 0.075, -0.11 + i * 0.07);
+      const knee = new Vector3(side * (0.19 + (i % 2) * 0.025), 0.12, -0.28 + i * 0.18);
+      const foot = new Vector3(side * (0.34 - (i % 2) * 0.025), 0.012, -0.39 + i * 0.25);
+      limb(start, knee, 0.018, legs, spider);
+      limb(knee, foot, 0.012, legs, spider);
+      const jointMesh = new Mesh(new SphereGeometry(0.022, 8, 6), joint);
+      jointMesh.position.copy(knee);
+      spider.add(jointMesh);
     }
   }
   root.add(spider);

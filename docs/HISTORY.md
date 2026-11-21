@@ -1,5 +1,14 @@
 # History
 
+## 2026-11-20: Refine the spider web and silhouette
+
+Changed the web from dense concentric rings to a wider, softer spiral with fewer
+spokes. Modeled a distinct cephalothorax and abdomen with eight jointed legs,
+and gave curved supports connected garden leaves. Removed the canopy leaf that
+crossed the patio heading and reduced the lower-left frame leaf. Typecheck,
+build, and browser suite pass; captures are in `test-results/patio/`. Not
+deployed.
+
 ## 2026-11-18: Composition and sky prototypes
 
 Captured two isolated garden treatments beside the afternoon concept at the
