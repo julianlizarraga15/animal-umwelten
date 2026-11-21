@@ -37,4 +37,4 @@ left wall.
 3. Check the same composition on a physical phone if mobile sign-off matters.
 
 The active plan is `docs/plans/20261121-enclosed-patio.md`. The opening view
-is local. Nothing is committed or deployed.
+is on `main` (`4b4b542`) and pushed to origin. Nothing is deployed.
