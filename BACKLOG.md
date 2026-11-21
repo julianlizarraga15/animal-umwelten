@@ -16,8 +16,8 @@
 
 ## Next experiment
 
-- Fill the back wall with more of the same broad leaf if the sparse vines
-  read as empty. Do not bring back a second leaf shape.
+- If the upper plaster still feels bare beside the reference, add more of
+  the same broad leaf on the walls. Do not bring back a second leaf shape.
 
 - Evaluate whether visitors understand the spider's directional vibration cue
   and the difference between a visible signal encoding and animal vision.

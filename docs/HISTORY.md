@@ -1,5 +1,12 @@
 # History
 
+## 2026-11-21: Enclose the afternoon patio
+
+Replaced the open soil plane and floating leaves with a courtyard: side walls,
+brick paving to those walls, soil beds, and plants rooted in the beds or in
+pots. Kept the Rudbeckia, bee, web, door, window, and the two lessons. Browser
+suite passed at desktop and mobile viewports. Not committed or deployed.
+
 ## 2026-11-21: Make the opening patio readable
 
 Added a short two-lesson introduction and state-derived interface visibility,

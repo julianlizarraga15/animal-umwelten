@@ -1,5 +1,13 @@
 # Decisions
 
+## 2026-11-21: Close the patio into a courtyard
+
+The opening read as a cut floor, empty sides, and leaves with no plant. A
+three-sided courtyard now holds a brick floor, soil beds, and pots. Vines and
+border plants grow from that soil; framing leaves grow from the foreground
+pots. The flower, bee, web, and the two lessons stay. The picture remains an
+explanation, not a literal animal view.
+
 ## 2026-11-21: Let the patio be a place, not a dashboard
 
 Hide specimen captions and lesson controls on the opening patio, then reveal

@@ -1,5 +1,5 @@
 import {
-  BoxGeometry, BufferGeometry, Color, Euler, Float32BufferAttribute, Group,
+  BoxGeometry, BufferGeometry, CircleGeometry, Color, Euler, Float32BufferAttribute, Group,
   IcosahedronGeometry, InstancedMesh, LatheGeometry, Matrix4, Mesh, MeshStandardMaterial,
   PlaneGeometry, Quaternion, TorusGeometry, TubeGeometry, CatmullRomCurve3, Vector2, Vector3,
 } from 'three';
@@ -25,6 +25,14 @@ export type PatioScene = {
 
 /** Hero flower and its pot share this bed. The flower head sits about 1.5 units above it. */
 export const FLOWER_BED = new Vector3(-1.12, 0, 0.28);
+
+/** Courtyard soil. Side walls run past both opening cameras so the floor does not end in open space. */
+const FLOOR_Y = -2.2;
+const COURTYARD = { x0: -4.55, x1: 4.9, z0: -4.6, z1: 16.4, top: 3.9 };
+const SOIL_Y = FLOOR_Y + 0.1;
+const WALL_T = 0.46;
+/** Local height of the small pot lip after the profile is shifted onto the floor. */
+const REPAIRED_POT = { rimY: 0.754, soilRadius: 0.4 };
 
 function noisyFields(base: string, random: Random, period: number, amount: number) {
   const noise = tileableNoise(random, period);
@@ -223,6 +231,7 @@ function plantSpike(parent: Group, random: Random, origin: Vector3, scale: numbe
   group.add(stem);
   for (let i = 0; i < 7; i++) {
     const floret = new Mesh(new IcosahedronGeometry(0.045, 0), blossom);
+    floret.scale.set(0.72, 1.28, 0.72);
     floret.position.set((random() - 0.5) * 0.08, 0.35 + i * 0.09, (random() - 0.5) * 0.08);
     group.add(floret);
   }
@@ -231,100 +240,150 @@ function plantSpike(parent: Group, random: Random, origin: Vector3, scale: numbe
   parent.add(group);
 }
 
-function wornPath(): Mesh {
-  const centers = [
-    new Vector3(0.05, 0, 4.35),
-    new Vector3(0.22, 0, 2.4),
-    new Vector3(0.48, 0, 0.55),
-    new Vector3(0.62, 0, -1.35),
-    new Vector3(0.4, 0, -3.35),
-    new Vector3(0.5, 0, -5.6),
-  ];
-  const positions: number[] = [];
-  const uvs: number[] = [];
-  const indices: number[] = [];
-  centers.forEach((center, index) => {
-    const next = centers[Math.min(index + 1, centers.length - 1)];
-    const prev = centers[Math.max(index - 1, 0)];
-    const tangent = next.clone().sub(prev).setY(0);
-    if (tangent.lengthSq() < 1e-6) tangent.set(0, 0, -1);
-    tangent.normalize();
-    const side = new Vector3(-tangent.z, 0, tangent.x);
-    const half = 0.62 - index * 0.04;
-    for (const sign of [-1, 1]) {
-      const point = center.clone().addScaledVector(side, sign * half);
-      positions.push(point.x, -2.165, point.z);
-      uvs.push(sign * 0.5 + 0.5, index / (centers.length - 1));
-    }
-    if (index < centers.length - 1) {
-      const a = index * 2;
-      indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
-    }
+type CaneLeaf = { t: number; scale: number; yaw: number; lift: number; pitch?: number };
+
+/** A stem through world-space points, with blades whose bases sit on that stem. */
+function growCane(
+  parent: Group,
+  material: MeshStandardMaterial,
+  blades: readonly Mesh[],
+  points: readonly (readonly [number, number, number])[],
+  leaves: readonly CaneLeaf[],
+  radius = 0.016,
+): void {
+  const curve = new CatmullRomCurve3(points.map(([x, y, z]) => new Vector3(x, y, z)));
+  const stem = new Mesh(new TubeGeometry(curve, 24, radius, 5, false), material);
+  stem.castShadow = true;
+  stem.receiveShadow = true;
+  parent.add(stem);
+  leaves.forEach((leaf, index) => {
+    const node = curve.getPoint(leaf.t);
+    addBroadLeaf(parent, blades[index % blades.length], leaf.scale, {
+      x: node.x,
+      y: node.y,
+      z: node.z,
+      yaw: leaf.yaw,
+      lift: leaf.lift,
+      pitch: leaf.pitch ?? -0.35,
+    }, false);
   });
-  const geometry = new BufferGeometry();
-  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('uv', new Float32BufferAttribute(uvs, 2));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  const mesh = new Mesh(geometry, surfaceMaterial('path'));
-  mesh.receiveShadow = true;
-  return mesh;
 }
 
 export function createPatio(): PatioScene {
   const root = new Group();
 
-  const bedMaterial = surfaceMaterial('soil');
-  bedMaterial.roughness = 1;
-  const floor = new Mesh(new PlaneGeometry(24, 24), bedMaterial);
+  const bedMaterial = surfaceMaterial('path');
+  bedMaterial.roughness = 0.96;
+  bedMaterial.map?.repeat.set(9, 18);
+  bedMaterial.bumpMap?.repeat.set(9, 18);
+  const floorSpan = {
+    x: (COURTYARD.x0 + COURTYARD.x1) / 2,
+    z: (COURTYARD.z0 - WALL_T / 2 + COURTYARD.z1) / 2,
+    width: COURTYARD.x1 - COURTYARD.x0 + WALL_T,
+    depth: COURTYARD.z1 - COURTYARD.z0 + WALL_T,
+  };
+  const floor = new Mesh(new PlaneGeometry(floorSpan.width, floorSpan.depth), bedMaterial);
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(0.4, -2.2, 0.2);
+  floor.position.set(floorSpan.x, FLOOR_Y, floorSpan.z);
   floor.receiveShadow = true;
   root.add(floor);
-  root.add(wornPath());
+  const gardenSoil = surfaceMaterial('soil');
+  gardenSoil.roughness = 1;
+  const addBed = (x: number, z: number, width: number, depth: number): void => {
+    const bed = new Mesh(new BoxGeometry(width, 0.14, depth), gardenSoil);
+    bed.position.set(x, FLOOR_Y + 0.07, z);
+    bed.receiveShadow = true;
+    bed.castShadow = true;
+    root.add(bed);
+  };
+  addBed(-3.5, 3.6, 2.1, 16.4);
+  addBed(4.05, 3.6, 1.7, 16.4);
+  addBed(-2.6, -3.85, 3.7, 1.35);
+  addBed(3.25, -3.85, 3.1, 1.35);
+  const flowerBed = new Mesh(new CircleGeometry(2.05, 40), gardenSoil);
+  flowerBed.rotation.x = -Math.PI / 2;
+  flowerBed.position.set(FLOWER_BED.x, SOIL_Y, FLOWER_BED.z);
+  flowerBed.receiveShadow = true;
+  root.add(flowerBed);
+  const webBed = new Mesh(new CircleGeometry(1.25, 32), gardenSoil);
+  webBed.rotation.x = -Math.PI / 2;
+  webBed.position.set(WEB_CENTER.x + 0.2, SOIL_Y, WEB_CENTER.z + 0.35);
+  webBed.receiveShadow = true;
+  root.add(webBed);
 
   const wallMaterial = surfaceMaterial('plaster');
+  wallMaterial.map?.repeat.set(6, 4);
+  wallMaterial.bumpMap?.repeat.set(6, 4);
   const trimMaterial = surfaceMaterial('trim');
   const terracottaMaterial = surfaceMaterial('terracotta');
 
   const house = new Group();
-  const backWall = new Mesh(new BoxGeometry(14, 4.8, 0.42), wallMaterial);
-  backWall.position.set(0.8, 0.15, -6.4);
+  const wallHeight = COURTYARD.top - FLOOR_Y;
+  const wallCenterY = (COURTYARD.top + FLOOR_Y) / 2;
+  const courtCenterX = (COURTYARD.x0 + COURTYARD.x1) / 2;
+  const sideDepth = COURTYARD.z1 - COURTYARD.z0;
+  const sideCenterZ = (COURTYARD.z0 + COURTYARD.z1) / 2;
+  const backWall = new Mesh(new BoxGeometry(COURTYARD.x1 - COURTYARD.x0 + WALL_T * 2, wallHeight, WALL_T), wallMaterial);
+  backWall.position.set(courtCenterX, wallCenterY, COURTYARD.z0 - WALL_T / 2);
   backWall.castShadow = true;
   backWall.receiveShadow = true;
   house.add(backWall);
-  const arch = new Mesh(new BoxGeometry(1.7, 2.5, 0.2), new MeshStandardMaterial({ color: '#6a4638', roughness: 1 }));
-  arch.position.set(0.55, -0.55, -6.16);
+  const leftWall = new Mesh(new BoxGeometry(WALL_T, wallHeight, sideDepth), wallMaterial);
+  leftWall.position.set(COURTYARD.x0 - WALL_T / 2, wallCenterY, sideCenterZ);
+  leftWall.castShadow = true;
+  leftWall.receiveShadow = true;
+  const rightWall = new Mesh(new BoxGeometry(WALL_T, wallHeight, sideDepth), wallMaterial);
+  rightWall.position.set(COURTYARD.x1 + WALL_T / 2, wallCenterY, sideCenterZ);
+  rightWall.castShadow = true;
+  rightWall.receiveShadow = true;
+  house.add(leftWall, rightWall);
+  const openingZ = COURTYARD.z0 + 0.06;
+  const arch = new Mesh(new BoxGeometry(2.05, 3.05, 0.2), new MeshStandardMaterial({ color: '#6a4638', roughness: 1 }));
+  arch.position.set(0.45, -0.62, openingZ);
   house.add(arch);
-  const windowFrame = new Mesh(new BoxGeometry(0.95, 1.15, 0.12), trimMaterial);
-  windowFrame.position.set(2.7, 0.7, -6.16);
+  const windowFrame = new Mesh(new BoxGeometry(1.28, 1.62, 0.12), trimMaterial);
+  windowFrame.position.set(2.65, 0.82, openingZ);
   house.add(windowFrame);
-  const windowGlass = new Mesh(new PlaneGeometry(0.62, 0.82), new MeshStandardMaterial({
+  const windowGlass = new Mesh(new PlaneGeometry(0.92, 1.22), new MeshStandardMaterial({
     color: '#f3c98a',
     emissive: '#e7a15a',
-    emissiveIntensity: 0.45,
+    emissiveIntensity: 0.55,
     roughness: 0.35,
   }));
-  windowGlass.position.set(2.7, 0.7, -5.92);
+  windowGlass.position.set(2.65, 0.82, openingZ + 0.22);
   house.add(windowGlass);
-  const mullionV = new Mesh(new BoxGeometry(0.04, 0.82, 0.04), trimMaterial);
-  mullionV.position.set(2.7, 0.7, -5.88);
-  const mullionH = new Mesh(new BoxGeometry(0.62, 0.04, 0.04), trimMaterial);
-  mullionH.position.set(2.7, 0.7, -5.88);
+  const mullionV = new Mesh(new BoxGeometry(0.045, 1.22, 0.04), trimMaterial);
+  mullionV.position.set(2.65, 0.82, openingZ + 0.26);
+  const mullionH = new Mesh(new BoxGeometry(0.92, 0.045, 0.04), trimMaterial);
+  mullionH.position.set(2.65, 0.82, openingZ + 0.26);
   house.add(mullionV, mullionH);
-  const coping = new Mesh(new BoxGeometry(14.2, 0.18, 0.62), trimMaterial);
-  coping.position.set(0.8, 2.62, -6.4);
-  coping.castShadow = true;
-  house.add(coping);
-  const plinth = new Mesh(new BoxGeometry(14.1, 0.28, 0.55), trimMaterial);
-  plinth.position.set(0.8, -2.05, -6.3);
-  plinth.receiveShadow = true;
-  house.add(plinth);
+  const copingY = COURTYARD.top + 0.08;
+  const backCoping = new Mesh(new BoxGeometry(COURTYARD.x1 - COURTYARD.x0 + WALL_T * 2 + 0.12, 0.16, 0.64), trimMaterial);
+  backCoping.position.set(courtCenterX, copingY, COURTYARD.z0 - WALL_T / 2);
+  backCoping.castShadow = true;
+  const leftCoping = new Mesh(new BoxGeometry(0.64, 0.16, sideDepth), trimMaterial);
+  leftCoping.position.set(COURTYARD.x0 - WALL_T / 2, copingY, sideCenterZ);
+  leftCoping.castShadow = true;
+  const rightCoping = new Mesh(new BoxGeometry(0.64, 0.16, sideDepth), trimMaterial);
+  rightCoping.position.set(COURTYARD.x1 + WALL_T / 2, copingY, sideCenterZ);
+  rightCoping.castShadow = true;
+  house.add(backCoping, leftCoping, rightCoping);
+  const plinthY = FLOOR_Y + 0.14;
+  const backPlinth = new Mesh(new BoxGeometry(COURTYARD.x1 - COURTYARD.x0, 0.28, 0.42), trimMaterial);
+  backPlinth.position.set(courtCenterX, plinthY, COURTYARD.z0 + 0.12);
+  backPlinth.receiveShadow = true;
+  const leftPlinth = new Mesh(new BoxGeometry(0.36, 0.28, sideDepth - 0.2), trimMaterial);
+  leftPlinth.position.set(COURTYARD.x0 + 0.16, plinthY, sideCenterZ + 0.1);
+  leftPlinth.receiveShadow = true;
+  const rightPlinth = new Mesh(new BoxGeometry(0.36, 0.28, sideDepth - 0.2), trimMaterial);
+  rightPlinth.position.set(COURTYARD.x1 - 0.16, plinthY, sideCenterZ + 0.1);
+  rightPlinth.receiveShadow = true;
+  house.add(backPlinth, leftPlinth, rightPlinth);
   const stainMat = surfaceMaterial('waterStain');
   stainMat.transparent = true;
   stainMat.depthWrite = false;
   const wallStain = new Mesh(new PlaneGeometry(1.6, 1.8), stainMat);
-  wallStain.position.set(-1.4, -0.7, -6.16);
+  wallStain.position.set(-1.55, -0.55, openingZ);
   house.add(wallStain);
   root.add(house);
 
@@ -335,133 +394,164 @@ export function createPatio(): PatioScene {
   pot.position.copy(FLOWER_BED);
   root.add(pot);
 
-  const repairedPot = createRepairedPot(terracottaMaterial);
-  repairedPot.position.set(WEB_CENTER.x + 0.35, -2.2, WEB_CENTER.z + 0.85);
-  repairedPot.scale.setScalar(1.35);
-  repairedPot.rotation.y = -0.4;
-  root.add(repairedPot);
-
   const broadLeaves = [
     createBroadLeaf(randomStream('foreground-leaf-a'), FOREGROUND_HAIR_DENSITY),
     createBroadLeaf(randomStream('foreground-leaf-b'), FOREGROUND_HAIR_DENSITY),
   ];
-  const leftFrame = new Group();
-  leftFrame.position.set(-3.45, -1.55, 5.15);
-  addBroadLeaf(leftFrame, broadLeaves[0], 6.8, { x: 0, y: 0, z: 0, yaw: 0.35, lift: 0.32 });
-  root.add(leftFrame);
-
-  const rightFrame = new Group();
-  rightFrame.position.set(3.75, -1.5, 4.65);
-  addBroadLeaf(rightFrame, broadLeaves[1], 6.2, { x: 0, y: 0, z: 0, yaw: Math.PI + 0.2, lift: 0.42 });
-  root.add(rightFrame);
-
   const gardenLeaves = [
     createBroadLeaf(randomStream('garden-leaf-a'), 0, GARDEN_LEAF),
     createBroadLeaf(randomStream('garden-leaf-b'), 0, GARDEN_LEAF),
   ];
-  const canopy = new Group();
-  const canopyLeaves = [
-    { blade: 0, scale: 19, x: 6.4, y: 3.05, z: 6.3, yaw: Math.PI - 0.4, lift: 0.68 },
-    { blade: 1, scale: 15, x: 3.8, y: 3.6, z: 5.5, yaw: Math.PI - 0.9, lift: 0.45 },
-  ] as const;
-  for (const leaf of canopyLeaves) {
-    addBroadLeaf(canopy, gardenLeaves[leaf.blade], leaf.scale, leaf, false);
+  const vineMaterial = new MeshStandardMaterial({ color: '#536947', roughness: 1 });
+  const potSoil = surfaceMaterial('soil');
+  const fan = (yaw: number, count = 5): CaneLeaf[] => Array.from({ length: count }, (_, index) => {
+    const side = index % 2 === 0 ? -1 : 1;
+    return {
+      t: 0.14 + index * (0.78 / (count - 1)),
+      scale: 6.4 + (index % 3) * 0.8,
+      yaw: yaw + side * 0.65,
+      lift: side * 0.55,
+      pitch: -1.05,
+    };
+  });
+  const seatPot = (x: number, z: number, scale: number, yaw: number): Vector3 => {
+    const planted = createRepairedPot(terracottaMaterial);
+    planted.position.set(x, FLOOR_Y, z);
+    planted.scale.setScalar(scale);
+    planted.rotation.y = yaw;
+    root.add(planted);
+    const rim = new Vector3(x, FLOOR_Y + REPAIRED_POT.rimY * scale, z);
+    const disk = new Mesh(new CircleGeometry(REPAIRED_POT.soilRadius * scale, 28), potSoil);
+    disk.rotation.x = -Math.PI / 2;
+    disk.position.set(x, rim.y - 0.04 * scale, z);
+    disk.receiveShadow = true;
+    root.add(disk);
+    return rim;
+  };
+  const potCane = (rim: Vector3, height: number, leanX: number, leanZ: number, yaw: number, scale: number): void => {
+    growCane(root, vineMaterial, gardenLeaves, [
+      [rim.x, rim.y - 0.02, rim.z],
+      [rim.x + leanX * 0.4, rim.y + height * 0.55, rim.z + leanZ * 0.4],
+      [rim.x + leanX, rim.y + height, rim.z + leanZ],
+    ], [
+      { t: 0.48, scale, yaw: yaw - 0.7, lift: 0.4, pitch: -0.5 },
+      { t: 0.74, scale: scale * 1.08, yaw: yaw + 0.65, lift: -0.22, pitch: -0.45 },
+      { t: 0.96, scale: scale * 0.92, yaw, lift: 0.5, pitch: -0.2 },
+    ], 0.011);
+  };
+
+  const vineZ = COURTYARD.z0 + 0.12;
+  for (const vine of [
+    { x: -3.55, bends: [-0.18, 0.22, -0.1], yaw: 0.35 },
+    { x: -1.65, bends: [-0.2, -0.28, -0.08], yaw: 0.15 },
+    { x: 1.78, bends: [0.14, 0.24, 0.08], yaw: -0.15 },
+    { x: 4.05, bends: [0.1, -0.18, 0.14], yaw: -0.3 },
+  ]) {
+    growCane(root, vineMaterial, gardenLeaves, [
+      [vine.x, SOIL_Y, vineZ],
+      [vine.x + vine.bends[0], -1.05, vineZ + 0.14],
+      [vine.x + vine.bends[1], 0.05, vineZ + 0.2],
+      [vine.x + vine.bends[2], 1.15, vineZ + 0.12],
+    ], fan(vine.yaw, 5), 0.022);
   }
+  for (const vine of [
+    { x: -4.28, z: -3.2, yaw: 1.1 },
+    { x: -4.32, z: -1.15, yaw: 1.0 },
+    { x: -4.26, z: 0.85, yaw: 0.95 },
+    { x: -4.3, z: 2.7, yaw: 0.85 },
+    { x: -4.24, z: 4.7, yaw: 0.75 },
+    { x: -4.2, z: 7.3, yaw: 0.7 },
+    { x: -4.18, z: 9.6, yaw: 0.62 },
+    { x: -4.16, z: 11.8, yaw: 0.55 },
+    { x: 4.66, z: -3.0, yaw: -1.05 },
+    { x: 4.7, z: -0.7, yaw: -0.95 },
+    { x: 4.64, z: 1.45, yaw: -0.9 },
+    { x: 4.68, z: 3.3, yaw: -0.8 },
+    { x: 4.62, z: 5.05, yaw: -0.7 },
+    { x: 4.58, z: 7.5, yaw: -0.62 },
+    { x: 4.56, z: 9.8, yaw: -0.55 },
+    { x: 4.54, z: 12.0, yaw: -0.5 },
+  ]) {
+    const intoCourt = Math.sign(vine.yaw);
+    growCane(root, vineMaterial, gardenLeaves, [
+      [vine.x, SOIL_Y, vine.z],
+      [vine.x + intoCourt * 0.22, -0.85, vine.z + 0.1],
+      [vine.x + intoCourt * 0.3, 0.35, vine.z],
+      [vine.x + intoCourt * 0.16, 1.45, vine.z - 0.04],
+      [vine.x + intoCourt * 0.08, 2.45, vine.z + 0.06],
+    ], fan(vine.yaw, 6).map((leaf) => ({ ...leaf, scale: leaf.scale + 1.6 })), 0.026);
+  }
+  for (const bed of [
+    { x: -3.75, z: -3.5, lean: 0.34, yaw: 0.55 },
+    { x: -3.55, z: -1.35, lean: 0.26, yaw: 0.4 },
+    { x: -3.8, z: 0.75, lean: 0.3, yaw: 0.5 },
+    { x: -3.5, z: 2.85, lean: 0.22, yaw: 0.7 },
+    { x: -3.65, z: 4.75, lean: 0.16, yaw: 0.85 },
+    { x: 3.95, z: -3.2, lean: -0.3, yaw: -0.55 },
+    { x: 4.1, z: -1.05, lean: -0.22, yaw: -0.4 },
+    { x: 3.85, z: 1.7, lean: -0.28, yaw: -0.5 },
+    { x: 4.05, z: 3.45, lean: -0.18, yaw: -0.7 },
+    { x: 3.9, z: 5.05, lean: -0.14, yaw: -0.85 },
+  ]) {
+    growCane(root, vineMaterial, gardenLeaves, [
+      [bed.x, SOIL_Y, bed.z],
+      [bed.x + bed.lean * 0.45, -1.35, bed.z + 0.05],
+      [bed.x + bed.lean, -0.72, bed.z + 0.1],
+    ], [
+      { t: 0.58, scale: 5.4, yaw: bed.yaw, lift: 0.45, pitch: -0.85 },
+      { t: 0.82, scale: 6.6, yaw: bed.yaw + 0.7, lift: -0.1, pitch: -1.05 },
+      { t: 0.97, scale: 5.8, yaw: bed.yaw - 0.45, lift: 0.2, pitch: -0.7 },
+    ], 0.014);
+  }
+  for (const clump of [
+    { x: -2.45, z: -1.05, yaw: 0.4 },
+    { x: -2.6, z: 1.25, yaw: 0.9 },
+    { x: -2.2, z: -2.55, yaw: 0.2 },
+    { x: 3.9, z: -3.55, yaw: -0.4 },
+    { x: -3.85, z: -3.65, yaw: 0.5 },
+  ]) {
+    growCane(root, vineMaterial, gardenLeaves, [
+      [clump.x, SOIL_Y, clump.z],
+      [clump.x + 0.08, -1.35, clump.z + 0.06],
+      [clump.x - 0.04, -0.55, clump.z - 0.02],
+    ], fan(clump.yaw, 3).map((leaf) => ({ ...leaf, scale: leaf.scale + 0.4 })), 0.014);
+  }
+
+  const webRim = seatPot(WEB_CENTER.x + 0.35, WEB_CENTER.z + 0.85, 1.35, -0.4);
+  potCane(webRim, 0.48, 0.1, 0.18, -0.5, 2.3);
+  const leftRim = seatPot(-3.05, 5.35, 2.05, 0.5);
+  const rightRim = seatPot(3.22, 4.95, 1.9, -0.65);
+  potCane(leftRim, 0.42, 0.16, -0.12, 0.7, 3.1);
+  potCane(rightRim, 0.4, -0.14, -0.1, -0.8, 2.9);
+  potCane(seatPot(2.35, -2.55, 0.7, 0.45), 0.55, 0.06, 0.08, 0.3, 2.6);
+  potCane(seatPot(-2.2, -3.6, 0.58, -0.4), 0.46, -0.05, 0.06, -0.2, 2.2);
+
+  const leftFrame = new Group();
+  leftFrame.position.copy(leftRim);
+  addBroadLeaf(leftFrame, broadLeaves[0], 8.4, { x: 0.02, y: 0.05, z: 0, yaw: 0.62, lift: 0.7, pitch: -0.12 });
+  addBroadLeaf(leftFrame, gardenLeaves[0], 6.2, { x: -0.08, y: 0.02, z: 0.05, yaw: 1.25, lift: 0.15, pitch: -0.55 });
+  root.add(leftFrame);
+  const rightFrame = new Group();
+  rightFrame.position.copy(rightRim);
+  addBroadLeaf(rightFrame, broadLeaves[1], 7.8, { x: 0.02, y: 0.04, z: 0, yaw: Math.PI - 0.28, lift: 0.64, pitch: -0.1 });
+  addBroadLeaf(rightFrame, gardenLeaves[1], 5.8, { x: 0.06, y: 0.02, z: -0.04, yaw: Math.PI + 0.55, lift: -0.2, pitch: -0.5 });
+  root.add(rightFrame);
+
+  const canopy = new Group();
   root.add(canopy);
 
-  const wallGarden = new Group();
-  const wallRandom = randomStream('wall-garden');
-  const vineMaterial = new MeshStandardMaterial({ color: '#536947', roughness: 1 });
-  const vines = [
-    { x: -4.8, bends: [-0.22, 0.3, -0.12] },
-    { x: -2.7, bends: [0.28, -0.2, 0.2] },
-    { x: -0.75, bends: [-0.18, 0.24, -0.28] },
-    { x: 4.25, bends: [0.22, -0.3, 0.18] },
-  ] as const;
-  vines.forEach((vine, vineIndex) => {
-    const curve = new CatmullRomCurve3([
-      new Vector3(vine.x, -1.9, -6.08),
-      new Vector3(vine.x + vine.bends[0], -0.65, -6.04),
-      new Vector3(vine.x + vine.bends[1], 0.75, -6.02),
-      new Vector3(vine.x + vine.bends[2], 2.28, -6.06),
-    ]);
-    const stem = new Mesh(new TubeGeometry(curve, 24, 0.022, 6, false), vineMaterial);
-    stem.castShadow = true;
-    wallGarden.add(stem);
-    for (let leafIndex = 0; leafIndex < 6; leafIndex++) {
-      const side = leafIndex % 2 === 0 ? -1 : 1;
-      const node = curve.getPoint(0.13 + leafIndex * 0.15);
-      addBroadLeaf(wallGarden, gardenLeaves[(vineIndex + leafIndex) % 2], 4.5 + wallRandom() * 1.7, {
-        x: node.x + side * 0.08,
-        y: node.y,
-        z: node.z + 0.04,
-        yaw: side * (0.72 + wallRandom() * 0.7),
-        lift: side * (0.2 + wallRandom() * 0.35),
-        pitch: -0.28 + wallRandom() * 0.5,
-      }, false);
-    }
-  });
-  root.add(wallGarden);
-
-  const nearPath = createRepairedPot(terracottaMaterial);
-  nearPath.position.set(1.15, -2.2, -1.55);
-  nearPath.scale.setScalar(0.72);
-  nearPath.rotation.y = 0.6;
-  const farPath = createRepairedPot(terracottaMaterial);
-  farPath.position.set(-0.85, -2.2, -3.45);
-  farPath.scale.setScalar(0.48);
-  farPath.rotation.y = -0.8;
-  root.add(nearPath, farPath);
-  const addPotPlant = (origin: Vector3, height: number, leafScale: number, seed: string): void => {
-    const plant = new Group();
-    plant.position.copy(origin);
-    const random = randomStream(seed);
-    const stemCurve = new CatmullRomCurve3([
-      new Vector3(0, 0, 0),
-      new Vector3((random() - 0.5) * 0.08, height * 0.52, (random() - 0.5) * 0.08),
-      new Vector3((random() - 0.5) * 0.14, height, (random() - 0.5) * 0.12),
-    ]);
-    const stem = new Mesh(new TubeGeometry(stemCurve, 10, 0.012, 5, false), vineMaterial);
-    stem.castShadow = true;
-    plant.add(stem);
-    for (const [index, side] of [[0, -1], [1, 1]] as const) {
-      const node = stemCurve.getPoint(0.52 + index * 0.25);
-      addBroadLeaf(plant, gardenLeaves[index], leafScale * (0.9 + random() * 0.2), {
-        x: node.x,
-        y: node.y,
-        z: node.z,
-        yaw: side * (0.75 + random() * 0.3),
-        lift: side * 0.28,
-        pitch: -0.35,
-      }, false);
-    }
-    root.add(plant);
-  };
-  addPotPlant(new Vector3(1.15, -1.7, -1.55), 0.68, 3.8, 'near-pot-plant');
-  addPotPlant(new Vector3(-0.85, -1.87, -3.45), 0.48, 2.8, 'far-pot-plant');
-
-  const garden = new Group();
-  const groundRandom = randomStream('ground-leaves');
-  for (let index = 0; index < 6; index++) {
-    const side = index % 2 === 0 ? -1 : 1;
-    addBroadLeaf(garden, gardenLeaves[index % 2], 6.2 + groundRandom() * 1.6, {
-      x: side * (1.85 + groundRandom() * 0.65),
-      y: -1.45,
-      z: 1.4 - Math.floor(index / 2) * 1.1,
-      yaw: side * (0.4 + groundRandom() * 0.8),
-      lift: side * 0.15,
-      pitch: -0.95,
-    }, false);
+  for (const [index, spike] of ([
+    [-2.55, -0.95],
+    [-2.7, 1.15],
+    [-3.25, -2.2],
+    [3.7, -2.55],
+    [-3.9, -2.45],
+    [-3.6, 1.85],
+    [4.15, -2.15],
+    [4.0, 2.15],
+  ] as const).entries()) {
+    plantSpike(root, randomStream(`spike-${index}`), new Vector3(spike[0], SOIL_Y, spike[1]), 0.9);
   }
-  for (const [index, side] of [[0, -1], [1, -1], [2, 1], [3, 1]] as const) {
-    plantSpike(
-      garden,
-      randomStream(`spike-${index}`),
-      new Vector3(FLOWER_BED.x + side * (1.15 + index * 0.15), -2.15, FLOWER_BED.z - 1.3 - index * 0.35),
-      0.85,
-    );
-  }
-  root.add(garden);
 
   const soilY = POT.rimTop - POT.soilDrop;
   const soilRadius = 1.025;

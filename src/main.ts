@@ -247,12 +247,12 @@ function installLighting(scene: Scene, renderer: WebGLRenderer, rig: LightRig): 
   sunlight.position.set(...rig.sun.from);
   sunlight.castShadow = true;
   sunlight.shadow.mapSize.set(2048, 2048);
-  sunlight.shadow.camera.left = -9;
-  sunlight.shadow.camera.right = 9;
-  sunlight.shadow.camera.top = 9;
-  sunlight.shadow.camera.bottom = -9;
+  sunlight.shadow.camera.left = -18;
+  sunlight.shadow.camera.right = 18;
+  sunlight.shadow.camera.top = 18;
+  sunlight.shadow.camera.bottom = -18;
   sunlight.shadow.camera.near = 0.5;
-  sunlight.shadow.camera.far = 32;
+  sunlight.shadow.camera.far = 48;
   sunlight.shadow.normalBias = 0.03;
   sunlight.shadow.bias = -0.0001;
   sunlight.shadow.radius = rig.sun.shadowRadius;
